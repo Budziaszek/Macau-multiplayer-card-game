@@ -3,7 +3,8 @@
 #include <time.h>
 #include <iostream>
 #include "Deck.h"
-#include "ServerAndClient.h"
+#include "Server.h"
+#include "Client.h"
 
 using namespace std;
 

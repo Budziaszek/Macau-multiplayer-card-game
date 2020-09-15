@@ -1,312 +1,19 @@
-#include "ServerAndClient.h"
+#include "Client.h"
+#include "Server.h"
 #include <Windows.h>
-
-Server::Server(unsigned int portToListen, unsigned int maxNumberOfPlayers)
-{
-	whoRequested = -1;
-	playersCards = new PlayerCards[maxNumberOfPlayers];
-	client = new sf::TcpSocket[maxNumberOfPlayers];
-	port = portToListen;
-	numberOfPlayers = 0;
-	maximumNumberOfPlayers = maxNumberOfPlayers;
-	bonus = 0;
-	actualPlayer = 0;
-	for (int i = 0; i < maximumNumberOfPlayers; i++)
-		playersCards[i].numberOfCards = 0;
-	win = 1; //pierwsze miejsce do zdobycia
-	playersWhoFinished = new bool[numberOfPlayers];
-	for (int i = 0; i < numberOfPlayers; i++)
-		playersWhoFinished[i] = false;
-	numberOfPlayersWhoFinished = 0;
-}
-bool Server::startListening()
-{
-	cout << "SERWER" << endl;
-	if (listener.listen(port) != sf::Socket::Done)
-	{
-		cout << "Nie mozna rozpoczac nasluchiwania na porcie: " << port << endl;
-		system("PAUSE");
-		return false;
-	}
-	else
-	{
-		cout << "Nasluchiwanie na porcie: " << port << endl;
-		cout << "Serwer publiczne ip: " << sf::IpAddress::getPublicAddress() << endl;
-		cout << "Serwer lokalne ip: " << sf::IpAddress::getLocalAddress() << endl;
-	}
-
-	return true;
-}
-void Server::waitForPlayers(unsigned int definedNumberOfPlayers)
-{
-	cout << "Oczekiwanie na graczy" << endl;
-	while (numberOfPlayers < definedNumberOfPlayers) 
-	{
-		listener.accept(client[numberOfPlayers]);
-		std::cout << "Polaczyl sie gracz o ip: " << client[numberOfPlayers].getRemoteAddress() << std::endl;
-		numberOfPlayers++;
-	}
-}
-void Server::sendCards(unsigned int clientId) 
-{
-	packet.clear();
-	packet << Client::cardsList << playersCards[clientId].numberOfCards;
-	for (int i = 0; i < playersCards[clientId].numberOfCards; i++)
-	{
-		packet << playersCards[clientId].checkOne(i).getColor() << playersCards[clientId].checkOne(i).getFigure();
-	}
-	if (client[clientId].send(packet) == sf::Socket::Done)
-		cout << "Wyslano karty do gracza " << clientId << endl;
-}
-bool Server::recieveSomethingAndResponse(unsigned int clientId)
-{
-	packet.clear();
-	if (client[clientId].receive(packet) == sf::Socket::Done)
-	{
-		int commandId;
-		packet >> commandId;
-		if (commandId == Server::draw)
-		{
-			
-			packet.clear();
-			packet << Client::cardsList;
-			packet << 1;
-
-			Card card = deck.giveOne();
-			packet << card.getColor() << card.getFigure();
-			playersCards[clientId].draw(card);
-			
-			while(client[clientId].send(packet)!=sf::Socket::Done)
-				;
-
-			for (int i = 0; i < numberOfPlayers; i++)
-			{
-				if (i != clientId)
-					sendCardOnTable(i);
-			}
-			
-			for (int i = 0; i < numberOfPlayers; i++)
-				if (i != clientId)
-					sendNumbersOfCards(i);
-			cout << "     Client " << clientId << " zadanie karty" << endl;
-		}
-		else if (commandId == Server::discard)
-		{
-			int color, figure;
-			packet >> color >> figure;
-			playersCards[clientId].discard(Card(color, figure), deck);
-			cardOnTable = Card(color, figure);
-
-			for (int i = 0; i < numberOfPlayers; i++)
-			{
-				if(i!=clientId)
-				sendCardOnTable(i);
-			}
-			for (int i = 0; i < numberOfPlayers; i++)
-				if (i != clientId)
-					sendNumbersOfCards(i);
-			cout << "     Client " << clientId << " wyrzucenie" << endl;
-		}
-		else if (commandId == Server::finish)
-		{
-			packet >> bonus;
-			cout << "    Client " << clientId << " zakonczenie. Przekazany bonus: " <<bonus<< endl;
-			if (bonus == Server::Jack)
-			{
-				packet >> figureRequest;
-				cout << "      Zadanie figury " << figureRequest << endl;
-				whoRequested = clientId;
-			}		
-			else if (bonus == Server::Ace)
-			{
-				packet >> colorRequest;
-				cout << "      Zadanie koloru " << colorRequest << endl;
-			}
-			else if (bonus == Server::Four)
-			{
-				packet >> turnsToLose;
-				cout << "      Do stracenia " << turnsToLose << " kolejek" << endl;
-			}
-			else if (bonus == Server::continueReqest)
-			{
-				if (whoRequested != actualPlayer)
-					bonus = Server::Jack;
-				if (whoRequested == actualPlayer)
-				{
-					bonus = 0;
-					whoRequested = -1;
-				}
-			}	
-			moveBack = false;
-			packet >> moveBack;
-			if (moveBack)
-			{
-				cout << "          Przejscie do poprzedniego gracza" << endl;
-				previousPlayer();
-			}
-			else
-			{
-				cout << "          Przejscie do nastepnego gracza" << endl;
-				nextPlayer();
-			}
-				
-			packet.clear();
-			packet << Client::move;
-			while (client[actualPlayer].send(packet) != sf::Socket::Done);
-			packet.clear();
-			packet << -1;
-			while (client[clientId].send(packet) != sf::Socket::Done);	
-			cout << "Ruch gracza " << actualPlayer << endl;
-		}
-		else if (commandId == Server::giveBonus)
-		{
-			packet.clear();
-			packet<< Client::catchBonus << bonus;
-			if (bonus == Server::Jack)
-				packet << figureRequest;
-			else if (bonus == Server::Four)
-				packet << turnsToLose;
-			else if (bonus == Server::Ace)
-				packet << colorRequest;
-			packet << moveBack;
-			while (client[actualPlayer].send(packet) != sf::Socket::Done);
-			cout << "     Client " << clientId << " wysylam bonus " <<bonus << endl;
-		}
-		else if (commandId == Server::loseTurn)
-		{
-			cout << "    Client " << clientId << " utrata kolejki." << endl;
-
-			if (moveBack)
-			{
-				cout << "          Przejscie do poprzedniego gracza" << endl;
-				previousPlayer();
-			}
-			else
-			{
-				cout << "          Przejscie do nastepnego gracza" << endl;
-				nextPlayer();
-			}
-			
-			packet.clear();
-			packet << Client::move;
-			while (client[actualPlayer].send(packet) != sf::Socket::Done);
-			packet.clear();
-			packet << -1;
-			while (client[clientId].send(packet) != sf::Socket::Done);
-			cout << "Ruch gracza " << actualPlayer << endl;
-		}
-		else if (commandId == Server::winStatus)
-		{
-			cout << "    Client " << clientId << " zakonczyl rozgrywke na miejscu " << win << endl;
-			
-			packet.clear();
-			packet << Client::place << win;
-			win++;
-			while (client[actualPlayer].send(packet) != sf::Socket::Done);
-			playersWhoFinished[actualPlayer] = true;
-			numberOfPlayersWhoFinished++;
-
-			if (numberOfPlayersWhoFinished == numberOfPlayers - 1)
-			{
-				packet.clear();
-				packet << Client::place << win;
-				win++;
-				for (int i = 0; i < numberOfPlayers; i++)
-				{
-					if (playersWhoFinished[i] != true)
-					{
-						cout << "    Client " << i << " zakonczyl rozgrywke na miejscu " << win - 1 << endl;
-						while (client[i].send(packet) != sf::Socket::Done);
-						break;
-					}
-				}
-			}
-		}
-
-
-		else
-			cout << "Nieprawidlowa komenda " << commandId << endl;	
-	}
-	if (numberOfPlayersWhoFinished == numberOfPlayers - 1)
-		return false;
-	else
-		return true;
-}
-void Server::nextPlayer()
-{
-	if (actualPlayer == numberOfPlayers - 1)
-		actualPlayer = 0;
-	else
-		actualPlayer++;
-	if (playersWhoFinished[actualPlayer] == true)
-		nextPlayer();
-}
-void Server::previousPlayer()
-{
-	if (actualPlayer == 0)
-		actualPlayer = numberOfPlayers - 1;
-	else
-		actualPlayer--;
-	if (playersWhoFinished[actualPlayer] == true)
-		previousPlayer();
-}
-void Server::sendCardOnTable(unsigned int clientId)
-{
-	packet.clear();
-	packet << Client::cardOnTableActualization;
-	for (int i = 0; i < playersCards[clientId].numberOfCards; i++)
-	{
-		packet << cardOnTable.getColor() << cardOnTable.getFigure() << bonus;
-	}
-	while (client[clientId].send(packet) != sf::Socket::Done)
-		;
-}
-void Server::sendNumbersOfCards(unsigned int clientId)
-{
-	packet.clear();
-	packet << Client::numbersOfCards;
-	for(int i = 1; i<numberOfPlayers; i++)
-		packet<< playersCards[(clientId + i) % numberOfPlayers].numberOfCards;
-	packet << 0 << 0 << 0;
-	while (client[clientId].send(packet) != sf::Socket::Done);
-}
-void Server::game()
-{
-	deck.shuffle();
-	deck.show();
-	playersCards = deck.deal(numberOfPlayers, 5);
-	do {
-		cardOnTable = deck.giveOne();
-	} while (cardOnTable.getFigure() == 2 || cardOnTable.getFigure() == 3 || cardOnTable.getFigure() == Card::King || cardOnTable.getFigure() == 4 || cardOnTable.getFigure() == Card::Ace || cardOnTable.getFigure() == Card::Jack);
-	
-	for (int i = 0; i < numberOfPlayers; i++)
-	{
-		sendCards(i);
-		sendCardOnTable(i);
-		sendNumbersOfCards(i);
-	}
-	
-	packet.clear();
-	packet << Client::move;
-	while(client[actualPlayer].send(packet)!=sf::Socket::Done);
-	while (recieveSomethingAndResponse(actualPlayer));
-	cout << "Wszyscy gracze zakonczyli rozgrywke" << endl;
-	listener.close();
-	system("PAUSE");
-}
 
 Client::Client(unsigned int serverPort)
 {
 	myPlace = -1;
 	port = serverPort;
 	backgroundColor = sf::Color(0, 102, 0, 255);
-	font.loadFromFile("czcionka.ttf");
+	font.loadFromFile("font.ttf");
 	numberOfOtherCards = new unsigned int[3];
 }
 bool Client::welcomeScreen()
 {
 	window = new sf::RenderWindow(sf::VideoMode(800, 600), "Makao", sf::Style::Close);
-	
+
 	autor.setFont(font);
 	autor.setCharacterSize(15);
 	autor.setFillColor(sf::Color(96, 96, 96));
@@ -335,7 +42,7 @@ bool Client::welcomeScreen()
 			window->draw(text);
 			window->draw(autor);
 			window->display();
-			
+
 			if (event.type == sf::Event::Closed)
 				window->close();
 			if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
@@ -343,7 +50,7 @@ bool Client::welcomeScreen()
 				{
 					cout << "GRAJ" << endl;
 					if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
-					FreeConsole();
+						FreeConsole();
 					while (1)
 					{
 						string ipString = enterInformation("Wpisz ip serwera: ");
@@ -388,7 +95,7 @@ void Client::play()
 
 	sf::SocketSelector selector;
 	selector.add(server);
-	
+
 	images.load("cards.png", sf::Vector2u(71, 96));
 	sf::Vector2i basicCardsPosition = sf::Vector2i(110, 450);
 
@@ -423,10 +130,10 @@ void Client::play()
 		showCardOnTable();
 		showOtherPlayersCards();
 		window->draw(autor);
-		window->display();	
+		window->display();
 
 		while (window->pollEvent(event))
-		{	
+		{
 			if (itsMyTurn)
 			{
 				if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Button::Left)
@@ -451,7 +158,7 @@ void Client::play()
 								if (cards.checkOne(whichCard).getColor() == colorRequest || cards.checkOne(whichCard).getFigure() == Card::Ace) //tylko zadany kolor lub as
 									cards.changeChoose(whichCard);
 							}
-							else if(!waiting)
+							else if (!waiting)
 							{
 								if (cards.checkOne(whichCard).getColor() == cardOnTable.getColor() || cards.checkOne(whichCard).getFigure() == cardOnTable.getFigure())//tylko do koloru lub figury
 									if (figureOfAlreadyThrown == 0 || figureOfAlreadyThrown == cards.checkOne(whichCard).getFigure()) //w jednym ruchu tylko te same figury
@@ -460,15 +167,15 @@ void Client::play()
 							}
 						}
 					}
-					
-					if (drawButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) && somethingWasThrown == false && bonus!=Server::Four && !waiting)
+
+					if (drawButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) && somethingWasThrown == false && bonus != Server::Four && !waiting)
 					{
 						drawCards();
 						finishTurn();
 					}
 					if (makeMoveButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) && (somethingWasDone || bonus == Server::Four || waiting))
-					{	
-						if (!fourWasThrown && turnsToLose > 0)		
+					{
+						if (!fourWasThrown && turnsToLose > 0)
 							waiting = true;
 						else
 						{
@@ -478,16 +185,16 @@ void Client::play()
 							if (aceWasThrown)
 								if (realizeAceMove())
 									bonus = Server::Ace;
-						}	
+						}
 						finishTurn();
-					
+
 					}
 					if (discardButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) && !waiting)
 						discardMove();
 				}
 			}
 			if (event.type == sf::Event::Closed)
-				 window->close();
+				window->close();
 			if (!itsMyTurn)
 			{
 				if (selector.wait(sf::milliseconds(10)))
@@ -520,10 +227,10 @@ void Client::showPlayersCards(sf::Vector2i basicCardsPosition, int cardsXChange)
 		images.setNumber((cards.checkOne(i).getColor() - 1) * 13 + cards.checkOne(i).getFigure() - 1);
 		if (cards.checkOne(i).chosen == true && itsMyTurn)
 		{
-			images.setPosition(sf::Vector2i(basicCardsPosition.x + i*cardsXChange, basicCardsPosition.y - cardsYChange));
+			images.setPosition(sf::Vector2i(basicCardsPosition.x + i * cardsXChange, basicCardsPosition.y - cardsYChange));
 		}
 		else
-			images.setPosition(sf::Vector2i(basicCardsPosition.x + i*cardsXChange, basicCardsPosition.y));
+			images.setPosition(sf::Vector2i(basicCardsPosition.x + i * cardsXChange, basicCardsPosition.y));
 		window->draw(images);
 	}
 }
@@ -535,38 +242,38 @@ void Client::showCardOnTable()
 }
 void Client::showOtherPlayersCards()
 {
-		sf::RectangleShape cardDown(sf::Vector2f(71, 96));
-		cardDown.setFillColor(sf::Color(153, 0, 0, 255));
-		cardDown.setOutlineThickness(-1);
-		cardDown.setOutlineColor(sf::Color::Black);
+	sf::RectangleShape cardDown(sf::Vector2f(71, 96));
+	cardDown.setFillColor(sf::Color(153, 0, 0, 255));
+	cardDown.setOutlineThickness(-1);
+	cardDown.setOutlineColor(sf::Color::Black);
 
-		int cardsXChange = checkCardsInterval(numberOfOtherCards[0]);
+	int cardsXChange = checkCardsInterval(numberOfOtherCards[0]);
 
-		cardDown.setRotation(90);
-		for (int i = 0; i < numberOfOtherCards[0]; i++)//wyswietl karty gracza po lewej
-		{
-			cardDown.setPosition(sf::Vector2f(100, 50 + i*cardsXChange));
-			window->draw(cardDown);
-		}
+	cardDown.setRotation(90);
+	for (int i = 0; i < numberOfOtherCards[0]; i++)//wyswietl karty gracza po lewej
+	{
+		cardDown.setPosition(sf::Vector2f(100, 50 + i * cardsXChange));
+		window->draw(cardDown);
+	}
 
-		cardsXChange = checkCardsInterval(numberOfOtherCards[1]);
+	cardsXChange = checkCardsInterval(numberOfOtherCards[1]);
 
-		cardDown.setRotation(0);
-		for (int i = 0; i < numberOfOtherCards[1]; i++)//wyswietl karty gracza u gory
-		{
-			cardDown.setPosition(sf::Vector2f(150 + i*cardsXChange, 50));
-			window->draw(cardDown);
-		}
+	cardDown.setRotation(0);
+	for (int i = 0; i < numberOfOtherCards[1]; i++)//wyswietl karty gracza u gory
+	{
+		cardDown.setPosition(sf::Vector2f(150 + i * cardsXChange, 50));
+		window->draw(cardDown);
+	}
 
-		cardsXChange = checkCardsInterval(numberOfOtherCards[2]);
+	cardsXChange = checkCardsInterval(numberOfOtherCards[2]);
 
-		cardDown.setRotation(90);
-		for (int i = 0; i < numberOfOtherCards[2]; i++)//wyswietl karty z prawej
-		{
-			cardDown.setPosition(sf::Vector2f(800 - 50, 600 - 150 - i*cardsXChange));
-			window->draw(cardDown);
-		}
-	
+	cardDown.setRotation(90);
+	for (int i = 0; i < numberOfOtherCards[2]; i++)//wyswietl karty z prawej
+	{
+		cardDown.setPosition(sf::Vector2f(800 - 50, 600 - 150 - i * cardsXChange));
+		window->draw(cardDown);
+	}
+
 }
 void Client::showStatement()
 {
@@ -630,7 +337,7 @@ void Client::showStatement()
 	}
 	if (waitPermanently)
 	{
-		if(cards.numberOfCards>0)
+		if (cards.numberOfCards > 0)
 			bonusToTake.setString(communicatLose + std::to_string(myPlace));
 		else
 			bonusToTake.setString(communicatWin + std::to_string(myPlace));
@@ -656,11 +363,11 @@ void Client::showButtons()
 	else
 		discardButton.setFillColor(sf::Color::White);
 
-	if (somethingWasDone || waiting || bonus ==Server::Four)
+	if (somethingWasDone || waiting || bonus == Server::Four)
 		window->draw(makeMoveButton);
 	if (!waiting)
 		window->draw(discardButton);
-	if (!somethingWasThrown && bonus!=Server::Four && !waiting)
+	if (!somethingWasThrown && bonus != Server::Four && !waiting)
 		window->draw(drawButton);
 }
 void Client::drawCards()
@@ -683,8 +390,8 @@ void Client::drawCards()
 			;
 		recieveSomething();
 	}
-	if(bonus>0)
-	bonus = 0;
+	if (bonus > 0)
+		bonus = 0;
 }
 void Client::discardMove()
 {
@@ -760,8 +467,8 @@ void Client::finishTurn()
 		packet << moveBack;
 
 		while (server.send(packet) != sf::Socket::Done)
-			;		
-		
+			;
+
 		if (bonus == Server::Four && fourWasThrown)
 			turnsToLose = 0;
 		bonus = 0;
@@ -881,7 +588,7 @@ bool Client::realizeJackMove()
 						tab[i].setFillColor(sf::Color::White);
 						tab[i].setFont(font);
 						tab[i].setCharacterSize(20);
-						tab[i].setPosition(50, 20 + i*15);
+						tab[i].setPosition(50, 20 + i * 15);
 					}
 
 					while (miniWindow->isOpen())
@@ -915,7 +622,7 @@ bool Client::realizeJackMove()
 							miniWindow->display();
 						}
 					}
-		
+
 					return true;
 				}
 		}
@@ -1071,100 +778,100 @@ bool Client::recieveSomething()
 	packet.clear();
 	if (server.receive(packet) == sf::Socket::Done)
 	{
-	int commandId;
-	packet >> commandId;	
-	if (waitPermanently)
-	{
-		packet.clear();
-		packet << Server::loseTurn;
-		while (server.send(packet) != sf::Socket::Done)
-			;
-		itsMyTurn = false;
-		somethingWasDone = false;
-		cout << "Kolejka opuszczona z powodu zakonczenia gry." << endl;
-	}
-	if (commandId == Client::cardsList)
-	{
-		int numberOfCardsToTake;
-		packet >> numberOfCardsToTake;
-		for (int i = 0; i < numberOfCardsToTake; i++)
+		int commandId;
+		packet >> commandId;
+		if (waitPermanently)
+		{
+			packet.clear();
+			packet << Server::loseTurn;
+			while (server.send(packet) != sf::Socket::Done)
+				;
+			itsMyTurn = false;
+			somethingWasDone = false;
+			cout << "Kolejka opuszczona z powodu zakonczenia gry." << endl;
+		}
+		if (commandId == Client::cardsList)
+		{
+			int numberOfCardsToTake;
+			packet >> numberOfCardsToTake;
+			for (int i = 0; i < numberOfCardsToTake; i++)
+			{
+				int color, figure;
+				packet >> color >> figure;
+				Card card = Card(color, figure);
+				cards.draw(card);
+			}
+			return true;
+			cout << "Otrzymano karty" << endl;
+		}
+		else if (commandId == Client::cardOnTableActualization)
 		{
 			int color, figure;
 			packet >> color >> figure;
-			Card card = Card(color, figure);
-			cards.draw(card);
+			cardOnTable = Card(color, figure);
+			cout << "Nowa karta na stole" << endl;
 		}
+		else if (commandId == Client::move)
+		{
+			itsMyTurn = true;
+			cout << "Moj ruch" << endl;
+		}
+		else if (commandId == Client::numbersOfCards)
+		{
+			packet >> numberOfOtherCards[0] >> numberOfOtherCards[1] >> numberOfOtherCards[2];
+			cout << "Zmiana ilosci kart innnych graczy! " << numberOfOtherCards[0] << " " << numberOfOtherCards[1] << " " << numberOfOtherCards[2] << endl;
+		}
+		else if (commandId == Client::catchBonus)
+		{
+			if (!waiting)
+			{
+				packet >> bonus;
+				cout << "Aktualny bonus: " << bonus << endl;
+				if (bonus == Server::Jack)
+					packet >> figureRequest;
+				else if (bonus == Server::Four)
+					packet >> turnsToLose;
+				else if (bonus == Server::Ace)
+					packet >> colorRequest;
+			}
+			if (waiting)
+			{
+				int Pbonus, PfigureRequest, PturnsToLose, PcolorRequest, PmoveBack;
+
+				packet >> Pbonus;
+				if (Pbonus == Server::Jack)
+					packet >> PfigureRequest;
+				else if (Pbonus == Server::Four)
+					packet >> PturnsToLose;
+				else if (Pbonus == Server::Ace)
+					packet >> PcolorRequest;
+				packet >> PmoveBack;
+
+				packet.clear();
+				packet << Server::finish;
+
+				if (Pbonus == Server::Jack)
+					packet << Server::continueReqest;
+				else if (Pbonus == Server::Four)
+					packet << Server::Four << PturnsToLose;
+				else
+					packet << Pbonus;
+				if (Pbonus == Server::Jack)
+					packet << PfigureRequest;
+				if (Pbonus == Server::Ace)
+					packet << PcolorRequest;
+				packet << PmoveBack;
+			}
+		}
+		else if (commandId == Client::place)
+		{
+			packet >> myPlace;
+			cout << "Zajeto " << myPlace << " miejsce" << endl;
+			itsMyTurn = true;
+			waitPermanently = true;
+		}
+
 		return true;
-		cout << "Otrzymano karty" << endl;
-	}
-	else if (commandId == Client::cardOnTableActualization)
-	{
-		int color, figure;
-		packet >> color >> figure;
-		cardOnTable = Card(color, figure);
-		cout << "Nowa karta na stole" << endl;
-	}
-	else if (commandId == Client::move)
-	{
-		itsMyTurn = true;
-		cout << "Moj ruch" << endl;
-	}
-	else if (commandId == Client::numbersOfCards)
-	{
-		packet >> numberOfOtherCards[0] >> numberOfOtherCards[1] >> numberOfOtherCards[2];
-		cout << "Zmiana ilosci kart innnych graczy! " << numberOfOtherCards[0] << " " << numberOfOtherCards[1] << " " << numberOfOtherCards[2] << endl;
-	}
-	else if (commandId == Client::catchBonus)
-	{
-		if (!waiting)
-		{
-			packet >> bonus;
-			cout << "Aktualny bonus: " << bonus << endl;
-			if (bonus == Server::Jack)
-				packet >> figureRequest;
-			else if (bonus == Server::Four)
-				packet >> turnsToLose;
-			else if (bonus == Server::Ace)
-				packet >> colorRequest;
-		}
-		if (waiting)
-		{
-			int Pbonus, PfigureRequest, PturnsToLose, PcolorRequest, PmoveBack;
-
-			packet >> Pbonus;
-			if (Pbonus == Server::Jack)
-				packet >> PfigureRequest;
-			else if (Pbonus == Server::Four)
-				packet >> PturnsToLose;
-			else if (Pbonus == Server::Ace)
-				packet >> PcolorRequest;
-			packet >> PmoveBack;
-
-			packet.clear();
-			packet << Server::finish;
-
-			if (Pbonus == Server::Jack)
-				packet << Server::continueReqest;
-			else if (Pbonus == Server::Four)
-				packet << Server::Four << PturnsToLose;
-			else
-				packet << Pbonus;
-			if (Pbonus == Server::Jack)
-				packet << PfigureRequest;
-			if (Pbonus == Server::Ace)
-				packet << PcolorRequest;
-			packet << PmoveBack;
-		}
-	}
-	else if (commandId == Client::place)
-	{
-		packet >> myPlace;
-		cout << "Zajeto " << myPlace << " miejsce" << endl;
-		itsMyTurn = true;
-		waitPermanently = true;
-	}
-
-	return true;
 	}
 	else
 		return false;
@@ -1198,14 +905,14 @@ string Client::enterInformation(string informationName, bool hidden)
 
 	while (window->isOpen())
 	{
-		while(window->pollEvent(event))
-		{		
+		while (window->pollEvent(event))
+		{
 			text.setString(informationName);
 			window->clear(backgroundColor);
 			window->draw(text);
 			window->draw(autor);
 			window->display();
-			
+
 			if (event.type == sf::Event::TextEntered && event.key.code != sf::Keyboard::Return)
 			{
 				if (event.text.unicode == '\b' && information.length() > 0)
@@ -1223,14 +930,14 @@ string Client::enterInformation(string informationName, bool hidden)
 				}
 			}
 			if (event.type == sf::Event::Closed)
-			{				
+			{
 				window->close();
 				return "";
 			}
 
-		if(event.key.code == sf::Keyboard::Return && information.length() > 0)
-			return information;
+			if (event.key.code == sf::Keyboard::Return && information.length() > 0)
+				return information;
 		}
-	} 
+	}
 	return "";
 }
