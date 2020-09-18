@@ -4,8 +4,7 @@
 
 #include "Card.h"
 
-Card::Card(unsigned int givenColor, unsigned int givenFigure)
-{
+Card::Card(unsigned int givenColor, unsigned int givenFigure) {
     if (givenFigure > 13)
         givenFigure = 13;
     if (givenFigure < 0)
@@ -19,11 +18,11 @@ Card::Card(unsigned int givenColor, unsigned int givenFigure)
     color = givenColor;
     chosen = false;
 }
-int Card::getColor()
-{
+
+unsigned int Card::getColor() const {
     return color;
 }
-int Card::getFigure()
-{
+
+unsigned int Card::getFigure() const {
     return figure;
 }

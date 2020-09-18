@@ -43,9 +43,9 @@ private:
 public:
     explicit Card(unsigned int givenColour = noColor, unsigned int givenFigure = noFigure);
 
-    int getColor();
+    unsigned int getColor() const;
 
-    int getFigure();
+    unsigned int getFigure() const;
 };
 
 #endif //MACAU_CARD_H
