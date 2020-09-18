@@ -64,50 +64,6 @@ private:
 	sf::Texture Tileset;
 };
 
-class Card
-{		
-	friend class Deck;
-	friend class PlayerCards;
-public:
-	bool chosen;
-	enum colors
-	{
-		noColor = 0,
-		club = 1, //trefl
-		heart, //kier
-		spade, //pik
-		diamond //karo
-	};
-	enum figures
-	{
-		noFigure = 0,
-		Ace = 1, 
-		Two,
-		Three,
-		Four,
-		Five,
-		Six,
-		Seven,
-		Eight,
-		Nine, 
-		Ten,
-		Jack,
-		Queen,
-		King, 
-	};
-
-private:
-	unsigned int color;
-	unsigned int figure;
-	
-
-	
-public:
-	Card(unsigned int givenColour = noColor, unsigned int givenFigure = noFigure);
-	int getColor();
-	int getFigure();
-};
-
 class Deck
 {
 public:
