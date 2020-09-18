@@ -10,6 +10,7 @@
 #include <iostream>
 #include "../cards/Card.h"
 #include "../cards/PlayerCards.h"
+#include "../../multiPlayerGame/Client.h"
 
 using namespace std;
 
