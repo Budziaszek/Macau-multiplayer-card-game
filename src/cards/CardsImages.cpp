@@ -16,8 +16,8 @@ bool CardsImages::load(const std::string &tileset, sf::Vector2u tileSize) {
         vertex[tileNumber].resize(4);
         sf::Vertex *quad = &(vertex[tileNumber][0]);
 
-        int n = tileNumber % (Tileset.getSize().x / tileSize.x);
-        int m = tileNumber / (Tileset.getSize().x / tileSize.x);
+        unsigned int n = tileNumber % (Tileset.getSize().x / tileSize.x);
+        unsigned int m = tileNumber / (Tileset.getSize().x / tileSize.x);
 
         quad[0].texCoords = sf::Vector2f(n * tileSize.x, m * tileSize.y);
         quad[1].texCoords = sf::Vector2f((n + 1) * tileSize.x, m * tileSize.y);

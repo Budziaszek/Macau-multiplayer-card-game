@@ -93,7 +93,8 @@ void Client::play() {
     sf::SocketSelector selector;
     selector.add(server);
 
-    images.load("cards.png", sf::Vector2u(71, 96));
+    if(!images.load("../resources/cards.png", sf::Vector2u(71, 96)))
+        return;
     sf::Vector2i basicCardsPosition = sf::Vector2i(110, 450);
 
     initializeButtons();
