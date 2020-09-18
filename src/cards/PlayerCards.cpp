@@ -3,6 +3,7 @@
 //
 
 #include "PlayerCards.h"
+#include "Deck.h"
 
 PlayerCards::PlayerCards() {
     numberOfCards = 0;

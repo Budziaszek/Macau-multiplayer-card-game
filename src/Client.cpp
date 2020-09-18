@@ -8,7 +8,7 @@ Client::Client(unsigned int serverPort) {
     myPlace = -1;
     port = serverPort;
     backgroundColor = sf::Color(0, 102, 0, 255);
-    font.loadFromFile("font.ttf");
+    font.loadFromFile("../resources/font.ttf");
     numberOfOtherCards = new unsigned int[3];
 }
 

@@ -5,6 +5,10 @@
 #ifndef MACAU_CARD_H
 #define MACAU_CARD_H
 
+class Deck;
+
+class PlayerCards;
+
 class Card {
     friend class Deck;
 

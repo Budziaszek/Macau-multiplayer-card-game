@@ -6,9 +6,12 @@
 #define MACAU_DECK_H
 
 #include <iostream>
-#include "PlayerCards.h"
 
 using namespace std;
+
+class Card;
+
+class PlayerCards;
 
 class Deck {
 public:

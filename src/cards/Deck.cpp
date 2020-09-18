@@ -3,6 +3,7 @@
 //
 
 #include "Deck.h"
+#include "PlayerCards.h"
 
 Deck::Deck() {
     lastBackInDeck = 52;
@@ -38,13 +39,10 @@ void Deck::shuffle(unsigned int times) {
     }
 }
 
-PlayerCards* Deck::deal(unsigned int numberOfPlayers, unsigned int numberOfCardsForEach)
-{
-    auto* playersCards = new PlayerCards[numberOfPlayers];
-    for (int i = 0; i < numberOfCardsForEach; i++)
-    {
-        for (int j = 0; j < numberOfPlayers; j++)
-        {
+PlayerCards *Deck::deal(unsigned int numberOfPlayers, unsigned int numberOfCardsForEach) {
+    auto *playersCards = new PlayerCards[numberOfPlayers];
+    for (int i = 0; i < numberOfCardsForEach; i++) {
+        for (int j = 0; j < numberOfPlayers; j++) {
             playersCards[j].cards[i] = this->cards[firstInDeck];
             playersCards[j].numberOfCards++;
             this->cards[firstInDeck].color = Card::noColor;

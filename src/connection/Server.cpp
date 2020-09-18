@@ -3,6 +3,7 @@
 //
 
 #include "Server.h"
+#include "../Client.h"
 
 Server::Server(unsigned int portToListen, unsigned int maxNumberOfPlayers)
 {

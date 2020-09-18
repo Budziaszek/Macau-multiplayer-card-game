@@ -5,8 +5,12 @@
 #ifndef MACAU_PLAYERCARDS_H
 #define MACAU_PLAYERCARDS_H
 
+#include <iostream>
 #include "Card.h"
-#include "Deck.h"
+
+using namespace std;
+
+class Deck;
 
 class PlayerCards
 {

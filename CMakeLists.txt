@@ -13,6 +13,6 @@ file(COPY ${ALL_REQUIRED_DLL} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 ## In most cases better set in the CMake cache
 set(SFML_DIR "${CMAKE_CURRENT_LIST_DIR}/libs/SFML-2.5.1/lib/cmake/SFML")
 
-find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
-add_executable(${PROJECT_NAME} main.cpp src/Card.cpp src/Card.h src/PlayerCards.cpp src/PlayerCards.h src/CardsImages.cpp src/CardsImages.h)
-target_link_libraries(${PROJECT_NAME} sfml-graphics sfml-window sfml-system)
+find_package(SFML 2.5 COMPONENTS graphics window system network REQUIRED)
+add_executable(${PROJECT_NAME} main.cpp src/cards/Card.cpp src/cards/Card.h src/cards/PlayerCards.cpp src/cards/PlayerCards.h src/cards/CardsImages.cpp src/cards/CardsImages.h src/cards/Deck.cpp src/cards/Deck.h src/connection/Server.cpp src/connection/Server.h src/Client.cpp src/Client.h)
+target_link_libraries(${PROJECT_NAME} sfml-graphics sfml-window sfml-system sfml-network)

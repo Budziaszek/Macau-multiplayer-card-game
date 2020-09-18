@@ -9,8 +9,8 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include "../cards/Card.h"
+#include "../cards/Deck.h"
 #include "../cards/PlayerCards.h"
-#include "../../multiPlayerGame/Client.h"
 
 using namespace std;
 
