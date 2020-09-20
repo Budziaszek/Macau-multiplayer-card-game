@@ -2,25 +2,22 @@
 // Created by Magdalena on 18.09.2020.
 //
 
-#include "Client.h"
+#include "GUI.h"
 
-Client::Client(unsigned int serverPort) {
-    myPlace = -1;
-    port = serverPort;
+GUI::GUI() {
     backgroundColor = sf::Color(0, 102, 0, 255);
     font.loadFromFile("../resources/font.ttf");
-    numberOfOtherCards = new unsigned int[3];
 }
 
-bool Client::welcomeScreen() {
+bool GUI::welcomeScreen() {
     window = new sf::RenderWindow(sf::VideoMode(800, 600), "Makao", sf::Style::Close);
 
-    autor.setFont(font);
-    autor.setCharacterSize(15);
-    autor.setFillColor(sf::Color(96, 96, 96));
-    autor.setOutlineColor(sf::Color(32, 32, 32));
-    autor.setPosition(650, 580);
-    autor.setString("Magdalena Budziaszek");
+    author.setFont(font);
+    author.setCharacterSize(15);
+    author.setFillColor(sf::Color(96, 96, 96));
+    author.setOutlineColor(sf::Color(32, 32, 32));
+    author.setPosition(650, 580);
+    author.setString("Magdalena Budziaszek");
 
     sf::Event event;
     sf::Text text;
@@ -39,7 +36,7 @@ bool Client::welcomeScreen() {
 
             window->clear(backgroundColor);
             window->draw(text);
-            window->draw(autor);
+            window->draw(author);
             window->display();
 
             if (event.type == sf::Event::Closed)
@@ -49,14 +46,7 @@ bool Client::welcomeScreen() {
                     cout << "GRAJ" << endl;
                     if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
                         FreeConsole();
-                    while (1) {
-                        string ipString = enterInformation("Wpisz ip serwera: ");
-                        if (ipString != "") {
-                            serverIp = sf::IpAddress(ipString);
-                            if (server.connect(serverIp, port) == sf::Socket::Done)
-                                break;
-                        }
-                    }
+                    while (!serverConnection.connect(enterInformation("Wpisz ip serwera: ")));
                     cout << "Rozpoczecie gry" << endl;
                     window->clear(backgroundColor);
                     text.setString("Oczekiwanie na pozostalych graczy");
@@ -79,145 +69,111 @@ bool Client::welcomeScreen() {
     return false;
 }
 
-void Client::play() {
-    moveBack = false;
-    itsMyTurn = false;
-    somethingWasThrown = false;
-    jackWasThrown = false;
-    aceWasThrown = false;
-    fourWasThrown = false;
-    waiting = false;
-    bool startPackReceived = false;
-    figureOfAlreadyThrown = Card::noFigure;
-
-    sf::SocketSelector selector;
-    selector.add(server);
-
+void GUI::play() {
     if(!images.load("../resources/cards.png", sf::Vector2u(71, 96)))
         return;
     sf::Vector2i basicCardsPosition = sf::Vector2i(110, 450);
 
     initializeButtons();
 
-    while (!startPackReceived) {
-        if (selector.wait(sf::milliseconds(10))) {
-            if (selector.isReady(server)) {
-                while (!recieveSomething()); //tu pobiera karty
-                cout << "Karty pobrane" << endl;
-                while (!recieveSomething()); //karta na stole
-                cout << "Karta na stole pobrana" << endl;
-                while (!recieveSomething()); //karty innych
-                cout << "Karty innych graczy pobrane" << endl;
-                startPackReceived = true;
-            }
-        }
-    }
+    while (!serverConnection.receiveStartPacket(&gameStatus));
 
     sf::Event event;
     while (window->isOpen()) {
         window->clear(backgroundColor);
-        int cardsXChange = checkCardsInterval(cards.numberOfCards);
+        int cardsXChange = checkCardsInterval(gameStatus.getNumberOfCards());
         showPlayersCards(basicCardsPosition, cardsXChange);
         showStatement();
-        if (itsMyTurn)
+        if (gameStatus.isItsMyTurn())
             showButtons();
         showCardOnTable();
         showOtherPlayersCards();
-        window->draw(autor);
+        window->draw(author);
         window->display();
 
         while (window->pollEvent(event)) {
-            if (itsMyTurn) {
+            if (gameStatus.isItsMyTurn()) {
                 if (event.type == sf::Event::MouseButtonPressed &&
                     event.mouseButton.button == sf::Mouse::Button::Left) {
                     if (sf::Mouse::getPosition(*window).x > basicCardsPosition.x && sf::Mouse::getPosition(*window).x <
                                                                                     (basicCardsPosition.x +
-                                                                                     cards.numberOfCards *
+                                                                                     gameStatus.getNumberOfCards() *
                                                                                      cardsXChange)) {
                         if (sf::Mouse::getPosition(*window).y > basicCardsPosition.y &&
                             sf::Mouse::getPosition(*window).y < basicCardsPosition.y + 96) {
                             int whichCard = (sf::Mouse::getPosition(*window).x - basicCardsPosition.x) / cardsXChange;
-                            if (bonus == Server::Jack) {
-                                if (cards.checkOne(whichCard).getFigure() == figureRequest ||
-                                    cards.checkOne(whichCard).getFigure() == Card::Jack)//tylko do figury lub walet
-                                    cards.changeChoose(whichCard);
-                            } else if (bonus == Server::Four) {
-                                if (cards.checkOne(whichCard).getFigure() == 4 && !waiting)
-                                    cards.changeChoose(whichCard);
-                            } else if (bonus == Server::Ace) {
-                                if (cards.checkOne(whichCard).getColor() == colorRequest ||
-                                    cards.checkOne(whichCard).getFigure() == Card::Ace) //tylko zadany kolor lub as
-                                    cards.changeChoose(whichCard);
-                            } else if (!waiting) {
-                                if (cards.checkOne(whichCard).getColor() == cardOnTable.getColor() ||
-                                    cards.checkOne(whichCard).getFigure() ==
-                                    cardOnTable.getFigure())//tylko do koloru lub figury
-                                    if (figureOfAlreadyThrown == 0 || figureOfAlreadyThrown == cards.checkOne(
-                                            whichCard).getFigure()) //w jednym ruchu tylko te same figury
-                                        if (bonus <= 0 || (cards.checkOne(whichCard).getFigure() == 2 ||
-                                                           cards.checkOne(whichCard).getFigure() == 3 ||
-                                                           (cards.checkOne(whichCard).getFigure() == Card::King &&
-                                                            (cards.checkOne(whichCard).getColor() == Card::heart ||
-                                                             cards.checkOne(whichCard).getColor() ==
+                            if (gameStatus.getBonus() == Server::Jack) {
+                                if (gameStatus.getCard(whichCard).getFigure() == gameStatus.getFigureRequest() ||
+                                        gameStatus.getCard(whichCard).getFigure() == Card::Jack)//tylko do figury lub walet
+                                    gameStatus.getCard(whichCard);
+                            } else if (gameStatus.getBonus() == Server::Four) {
+                                if (gameStatus.getCard(whichCard).getFigure() == 4 && !gameStatus.isWaiting())
+                                    gameStatus.getCard(whichCard);
+                            } else if (gameStatus.getBonus() == Server::Ace) {
+                                if (gameStatus.getCard(whichCard).getColor() == gameStatus.getColorRequest() ||
+                                        gameStatus.getCard(whichCard).getFigure() == Card::Ace) //tylko zadany kolor lub as
+                                    gameStatus.getCard(whichCard);
+                            } else if (!gameStatus.isWaiting()) {
+                                if (gameStatus.getCard(whichCard).getColor() == gameStatus.getCardOnTable().getColor() ||
+                                        gameStatus.getCard(whichCard).getFigure() ==
+                                            gameStatus.getCardOnTable().getFigure())//tylko do koloru lub figury
+                                    if (gameStatus.getFigureOfAlreadyThrown() == 0
+                                    || gameStatus.getFigureOfAlreadyThrown() == gameStatus.getCard(whichCard).getFigure())
+                                        //w jednym ruchu tylko te same figury
+                                        if (gameStatus.getBonus() <= 0 || (gameStatus.getCard(whichCard).getFigure() == 2 ||
+                                                gameStatus.getCard(whichCard).getFigure() == 3 ||
+                                                           (gameStatus.getCard(whichCard).getFigure() == Card::King &&
+                                                            (gameStatus.getCard(whichCard).getColor() == Card::heart ||
+                                                                    gameStatus.getCard(whichCard).getColor() ==
                                                              Card::spade)))) //waleczna na waleczna
-                                            cards.changeChoose(whichCard);
+                                            gameStatus.getCard(whichCard);
                             }
                         }
                     }
 
                     if (drawButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) &&
-                        somethingWasThrown == false && bonus != Server::Four && !waiting) {
-                        drawCards();
+                        gameStatus.isSomethingWasThrown() == false && gameStatus.getBonus() != Server::Four && !gameStatus.isWaiting()) {
+                        serverConnection.drawCards(&gameStatus);
+                        gameStatus.setBonus(0);
                         finishTurn();
                     }
                     if (makeMoveButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) &&
-                        (somethingWasDone || bonus == Server::Four || waiting)) {
-                        if (!fourWasThrown && turnsToLose > 0)
-                            waiting = true;
+                        (gameStatus.isSomethingWasDone() || gameStatus.getBonus() == Server::Four || gameStatus.isWaiting())) {
+                        if (!gameStatus.isFourWasThrown() && gameStatus.getTurnsToLose() > 0)
+                            gameStatus.setWaiting(true);
                         else {
-                            if (jackWasThrown)
+                            if (gameStatus.isJackWasThrown())
                                 if (realizeJackMove())
-                                    bonus = Server::Jack;
-                            if (aceWasThrown)
+                                    gameStatus.setBonus(Server::Jack);
+                            if (gameStatus.isAceWasThrown())
                                 if (realizeAceMove())
-                                    bonus = Server::Ace;
+                                    gameStatus.setBonus(Server::Ace);
                         }
                         finishTurn();
 
                     }
                     if (discardButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) &&
-                        !waiting)
-                        discardMove();
+                        !gameStatus.isWaiting())
+                        serverConnection.discard(gameStatus.discardMove());
+
                 }
             }
             if (event.type == sf::Event::Closed)
                 window->close();
-            if (!itsMyTurn) {
-                if (selector.wait(sf::milliseconds(10))) {
-                    if (selector.isReady(server)) {
-                        recieveSomething();
-                        if (itsMyTurn && !waitPermanently) {
-                            packet.clear();
-                            packet << Server::giveBonus;
-                            server.send(packet);
-                            recieveSomething();
-                        }
-                    }
-                }
-
-            }
+            if (!gameStatus.isItsMyTurn())
+                serverConnection.checkTurn(&gameStatus);
         }
     }
-    server.disconnect();
+    serverConnection.disconnect();
 }
 
-void Client::showPlayersCards(sf::Vector2i basicCardsPosition, int cardsXChange) {
+void GUI::showPlayersCards(sf::Vector2i basicCardsPosition, int cardsXChange) {
     images.setPosition(sf::Vector2i(basicCardsPosition.x, basicCardsPosition.y)); //delete if works without
-    int cardsYChange = checkCardsInterval(cards.numberOfCards);
+    int cardsYChange = checkCardsInterval(gameStatus.getNumberOfCards());
 
-    for (int i = 0; i < cards.numberOfCards; i++) {
-        images.setNumber((cards.checkOne(i).getColor() - 1) * 13 + cards.checkOne(i).getFigure() - 1);
-        if (cards.checkOne(i).chosen == true && itsMyTurn) {
+    for (int i = 0; i < gameStatus.getNumberOfCards(); i++) {
+        images.setNumber((gameStatus.getCard(i).getColor() - 1) * 13 + gameStatus.getCard(i).getFigure() - 1);
+        if (gameStatus.getCard(i).chosen == true && gameStatus.isItsMyTurn()) {
             images.setPosition(
                     sf::Vector2i(basicCardsPosition.x + i * cardsXChange, basicCardsPosition.y - cardsYChange));
         } else
@@ -226,40 +182,40 @@ void Client::showPlayersCards(sf::Vector2i basicCardsPosition, int cardsXChange)
     }
 }
 
-void Client::showCardOnTable() {
-    images.setNumber((cardOnTable.getColor() - 1) * 13 + cardOnTable.getFigure() - 1);
+void GUI::showCardOnTable() {
+    images.setNumber((gameStatus.getCardOnTable().getColor() - 1) * 13 + gameStatus.getCardOnTable().getFigure() - 1);
     images.setPosition(sf::Vector2i(400 - 35, 300 - 48));
     window->draw(images);
 }
 
-void Client::showOtherPlayersCards() {
+void GUI::showOtherPlayersCards() {
     sf::RectangleShape cardDown(sf::Vector2f(71, 96));
     cardDown.setFillColor(sf::Color(153, 0, 0, 255));
     cardDown.setOutlineThickness(-1);
     cardDown.setOutlineColor(sf::Color::Black);
 
-    int cardsXChange = checkCardsInterval(numberOfOtherCards[0]);
+    int cardsXChange = checkCardsInterval(gameStatus.getNumberOfOtherCards()[0]);
 
     cardDown.setRotation(90);
-    for (int i = 0; i < numberOfOtherCards[0]; i++)//wyswietl karty gracza po lewej
+    for (int i = 0; i < gameStatus.getNumberOfOtherCards()[0]; i++)//wyswietl karty gracza po lewej
     {
         cardDown.setPosition(sf::Vector2f(100, 50 + i * cardsXChange));
         window->draw(cardDown);
     }
 
-    cardsXChange = checkCardsInterval(numberOfOtherCards[1]);
+    cardsXChange = checkCardsInterval(gameStatus.getNumberOfOtherCards()[1]);
 
     cardDown.setRotation(0);
-    for (int i = 0; i < numberOfOtherCards[1]; i++)//wyswietl karty gracza u gory
+    for (int i = 0; i < gameStatus.getNumberOfOtherCards()[1]; i++)//wyswietl karty gracza u gory
     {
         cardDown.setPosition(sf::Vector2f(150 + i * cardsXChange, 50));
         window->draw(cardDown);
     }
 
-    cardsXChange = checkCardsInterval(numberOfOtherCards[2]);
+    cardsXChange = checkCardsInterval(gameStatus.getNumberOfOtherCards()[2]);
 
     cardDown.setRotation(90);
-    for (int i = 0; i < numberOfOtherCards[2]; i++)//wyswietl karty z prawej
+    for (int i = 0; i < gameStatus.getNumberOfOtherCards()[2]; i++)//wyswietl karty z prawej
     {
         cardDown.setPosition(sf::Vector2f(800 - 50, 600 - 150 - i * cardsXChange));
         window->draw(cardDown);
@@ -267,7 +223,7 @@ void Client::showOtherPlayersCards() {
 
 }
 
-void Client::showStatement() {
+void GUI::showStatement() {
     sf::Text bonusToTake;
     bonusToTake.setFont(font);
     bonusToTake.setCharacterSize(15);
@@ -279,57 +235,57 @@ void Client::showStatement() {
     string communicatWin = "Gratulacje. Zajales miejsce ";
     string communicatLose = "Przegrales! Zajales miejsce ";
 
-    if (bonus > 0) {
-        bonusToTake.setString(communicatToTake + std::to_string(bonus));
+    if (gameStatus.getBonus() > 0) {
+        bonusToTake.setString(communicatToTake + std::to_string(gameStatus.getBonus()));
         window->draw(bonusToTake);
     }
-    if (bonus == Server::Jack) {
-        if (figureRequest == Card::Queen)
+    if (gameStatus.getBonus() == Server::Jack) {
+        if (gameStatus.getFigureRequest() == Card::Queen)
             bonusToTake.setString(communicatRequest + "Q");
         else
-            bonusToTake.setString(communicatRequest + std::to_string(figureRequest));
+            bonusToTake.setString(communicatRequest + std::to_string(gameStatus.getFigureRequest()));
         window->draw(bonusToTake);
     }
-    if (bonus == Server::Ace) {
+    if (gameStatus.getBonus() == Server::Ace) {
         string colorStringRequest;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)) {
-            if (colorRequest == 1)
+            if (gameStatus.getColorRequest() == 1)
                 colorStringRequest = "trefl (koniczyna)";
-            if (colorRequest == 2)
+            if (gameStatus.getColorRequest() == 2)
                 colorStringRequest = "kier (serce)";
-            if (colorRequest == 3)
+            if (gameStatus.getColorRequest() == 3)
                 colorStringRequest = "pik (lisc)";
-            if (colorRequest == 4)
+            if (gameStatus.getColorRequest() == 4)
                 colorStringRequest = "karo (diament)";
         } else {
-            if (colorRequest == 1)
+            if (gameStatus.getColorRequest() == 1)
                 colorStringRequest = "trefl";
-            if (colorRequest == 2)
+            if (gameStatus.getColorRequest() == 2)
                 colorStringRequest = "kier";
-            if (colorRequest == 3)
+            if (gameStatus.getColorRequest() == 3)
                 colorStringRequest = "pik";
-            if (colorRequest == 4)
+            if (gameStatus.getColorRequest() == 4)
                 colorStringRequest = "karo";
         }
 
         bonusToTake.setString(communicatRequest + colorStringRequest);
         window->draw(bonusToTake);
     }
-    if (turnsToLose > 0) {
-        bonusToTake.setString(communicatWait + std::to_string(turnsToLose));
+    if (gameStatus.getTurnsToLose() > 0) {
+        bonusToTake.setString(communicatWait + std::to_string(gameStatus.getTurnsToLose()));
         window->draw(bonusToTake);
     }
-    if (waitPermanently) {
-        if (cards.numberOfCards > 0)
-            bonusToTake.setString(communicatLose + std::to_string(myPlace));
+    if (gameStatus.isWaitPermanently()) {
+        if (gameStatus.getNumberOfCards() > 0)
+            bonusToTake.setString(communicatLose + std::to_string(gameStatus.getMyPlace()));
         else
-            bonusToTake.setString(communicatWin + std::to_string(myPlace));
+            bonusToTake.setString(communicatWin + std::to_string(gameStatus.getMyPlace()));
         window->draw(bonusToTake);
     }
 }
 
-void Client::showButtons() {
-    if (waitPermanently)
+void GUI::showButtons() {
+    if (gameStatus.isWaitPermanently())
         return;
     if (drawButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))))
         drawButton.setFillColor(sf::Color::Yellow);
@@ -346,138 +302,49 @@ void Client::showButtons() {
     else
         discardButton.setFillColor(sf::Color::White);
 
-    if (somethingWasDone || waiting || bonus == Server::Four)
+    if (gameStatus.isSomethingWasDone() || gameStatus.isWaiting() || gameStatus.getBonus() == Server::Four)
         window->draw(makeMoveButton);
-    if (!waiting)
+    if (!gameStatus.isWaiting())
         window->draw(discardButton);
-    if (!somethingWasThrown && bonus != Server::Four && !waiting)
+    if (!gameStatus.isSomethingWasThrown() && gameStatus.getBonus() != Server::Four && !gameStatus.isWaiting())
         window->draw(drawButton);
 }
 
-void Client::drawCards() {
-    //ciagnij wiele
-    if (bonus > 0)
-        for (int i = 0; i < bonus; i++) {
-            packet.clear();
-            packet << Server::draw;
-            while (server.send(packet) != sf::Socket::Done);
-            recieveSomething();
-        }
-    else //ciagnij jedna
-    {
-        packet.clear();
-        packet << Server::draw;
-        while (server.send(packet) != sf::Socket::Done);
-        recieveSomething();
-    }
-    if (bonus > 0)
-        bonus = 0;
-}
+void GUI::finishTurn() {
+    if (!gameStatus.isWaiting()) {
 
-void Client::discardMove() {
-    somethingWasThrown = true;
-    Card card = cards.discard();
-
-    if (card.getFigure() != Card::noFigure && card.getColor() != Card::noColor) {
-        if (bonus < 0 && bonus != Server::continueReqest && bonus != Server::Jack)
-            bonus = 0;
-        if (card.getFigure() == 2 || card.getFigure() == 3)
-            bonus += card.getFigure();
-        else if (card.getFigure() == Card::King && card.getColor() == Card::heart) {
-            bonus += 5;
-            moveBack = false;
-        } else if (card.getFigure() == Card::King && card.getColor() == Card::spade) {
-            bonus += 5;
-            moveBack = true;
-        } else if (card.getFigure() == Card::Jack)
-            jackWasThrown = true;
-        else if (card.getFigure() == Card::Ace)
-            aceWasThrown = true;
-        else if (card.getFigure() == Card::Four) {
-            turnsToLose++;
-            fourWasThrown = true;
-            waiting = false;
+        if (gameStatus.getNumberOfCards() == 0) {
+            gameStatus.setWaitPermanently(true);
+            serverConnection.victory(&gameStatus);
         }
 
-        cardOnTable = card;
-        packet.clear();
-        packet << Server::discard << card.getColor() << card.getFigure();
-        figureOfAlreadyThrown = card.getFigure();
-        while (server.send(packet) != sf::Socket::Done);
-        somethingWasDone = true;
-        if (bonus == Server::Ace)
-            bonus = 0;
-    }
-}
+        serverConnection.finishTurn(&gameStatus);
 
-void Client::finishTurn() {
-    if (!waiting) {
-
-        if (cards.numberOfCards == 0) {
-            packet.clear();
-            packet << Server::winStatus;
-            while (server.send(packet) != sf::Socket::Done);
-            recieveSomething();
-            waitPermanently = true;
-        }
-
-        packet.clear();
-        packet << Server::finish;
-
-        if (!jackWasThrown && bonus == Server::Jack)
-            packet << Server::continueReqest;
-        else if (fourWasThrown)
-            packet << Server::Four << turnsToLose;
-        else
-            packet << bonus;
-        if (jackWasThrown)
-            packet << figureRequest;
-        if (aceWasThrown || bonus == Server::Ace)
-            packet << colorRequest;
-        packet << moveBack;
-
-        while (server.send(packet) != sf::Socket::Done);
-
-        if (bonus == Server::Four && fourWasThrown)
-            turnsToLose = 0;
-        bonus = 0;
-        turnsToLose = 0;
-        moveBack = false;
-        jackWasThrown = false;
-        aceWasThrown = false;
-        fourWasThrown = false;
-        itsMyTurn = false;
-        somethingWasThrown = false;
-        figureOfAlreadyThrown = Card::noFigure;
-        somethingWasDone = false;
-
-        cards.resetChoosen();
+        if (gameStatus.getBonus() == Server::Four && gameStatus.isFourWasThrown())
+            gameStatus.setTurnsToLose(0);
+        gameStatus.reset();
+        gameStatus.resetChoosenCard();
         cout << "Zakonczono kolejke" << endl;
     } else {
-        if (bonus == Server::wait) {
-            packet.clear();
-            packet << Server::loseTurn;
-            while (server.send(packet) != sf::Socket::Done);
-            itsMyTurn = false;
-            somethingWasDone = false;
+        if (gameStatus.getBonus() == Server::wait) {
+            serverConnection.loseTurn();
+            gameStatus.setItsMyTurn(false);
+            gameStatus.setSomethingWasDone(false);
             cout << "Kolejka zakonczona (utrata) - kolejna" << endl;
         } else {
-            packet.clear();
-            packet << Server::finish << 0 << 0;
-
-            while (server.send(packet) != sf::Socket::Done);
-            bonus = Server::wait;
-            itsMyTurn = false;
-            somethingWasDone = false;
+            serverConnection.finish();
+            gameStatus.setBonus(Server::wait);
+            gameStatus.setItsMyTurn(false);
+            gameStatus.setSomethingWasDone(true);
             cout << "Kolejka zakonczona (utrata) - pierwsza" << endl;
         }
-        turnsToLose--;
-        if (turnsToLose == 0)
-            waiting = false;
+        gameStatus.setTurnsToLose(gameStatus.getTurnsToLose() - 1);
+        if (gameStatus.getTurnsToLose() == 0)
+            gameStatus.setWaiting(false);
     }
 }
 
-bool Client::realizeJackMove() {
+bool GUI::realizeJackMove() {
     sf::RenderWindow *miniWindow = new sf::RenderWindow(sf::VideoMode(200, 200), "Zadanie (Walet)", sf::Style::Close);
 
     sf::Event event;
@@ -563,9 +430,9 @@ bool Client::realizeJackMove() {
                                     if (tab[i].getGlobalBounds().contains(
                                             sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
                                         if (i == 6)
-                                            figureRequest = Card::Queen;
+                                            gameStatus.setFigureRequest(Card::Queen);
                                         else
-                                            figureRequest = i + 5;
+                                            gameStatus.setFigureRequest(i + 5);
                                         miniWindow->close();
                                     }
                             }
@@ -584,7 +451,7 @@ bool Client::realizeJackMove() {
     return false;
 }
 
-bool Client::realizeAceMove() {
+bool GUI::realizeAceMove() {
     sf::RenderWindow *miniWindow = new sf::RenderWindow(sf::VideoMode(200, 200), "Zadanie (As)", sf::Style::Close);
 
     sf::Event event;
@@ -680,7 +547,7 @@ bool Client::realizeAceMove() {
                                     event.mouseButton.button == sf::Mouse::Left)
                                     if (tab[i].getGlobalBounds().contains(
                                             sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-                                        colorRequest = i + 1;
+                                        gameStatus.setColorRequest(i + 1);
                                         miniWindow->close();
                                     }
                             }
@@ -703,7 +570,7 @@ bool Client::realizeAceMove() {
     return false;
 }
 
-int Client::checkCardsInterval(int numberOfCards) {
+int GUI::checkCardsInterval(int numberOfCards) {
     if (numberOfCards <= 8)
         return 50;
     if (numberOfCards < 16)
@@ -716,93 +583,7 @@ int Client::checkCardsInterval(int numberOfCards) {
         return 5;
 }
 
-bool Client::recieveSomething() {
-    packet.clear();
-    if (server.receive(packet) == sf::Socket::Done) {
-        int commandId;
-        packet >> commandId;
-        if (waitPermanently) {
-            packet.clear();
-            packet << Server::loseTurn;
-            while (server.send(packet) != sf::Socket::Done);
-            itsMyTurn = false;
-            somethingWasDone = false;
-            cout << "Kolejka opuszczona z powodu zakonczenia gry." << endl;
-        }
-        if (commandId == Client::cardsList) {
-            int numberOfCardsToTake;
-            packet >> numberOfCardsToTake;
-            for (int i = 0; i < numberOfCardsToTake; i++) {
-                int color, figure;
-                packet >> color >> figure;
-                Card card = Card(color, figure);
-                cards.draw(card);
-            }
-            return true;
-            cout << "Otrzymano karty" << endl;
-        } else if (commandId == Client::cardOnTableActualization) {
-            int color, figure;
-            packet >> color >> figure;
-            cardOnTable = Card(color, figure);
-            cout << "Nowa karta na stole" << endl;
-        } else if (commandId == Client::move) {
-            itsMyTurn = true;
-            cout << "Moj ruch" << endl;
-        } else if (commandId == Client::numbersOfCards) {
-            packet >> numberOfOtherCards[0] >> numberOfOtherCards[1] >> numberOfOtherCards[2];
-            cout << "Zmiana ilosci kart innnych graczy! " << numberOfOtherCards[0] << " " << numberOfOtherCards[1]
-                 << " " << numberOfOtherCards[2] << endl;
-        } else if (commandId == Client::catchBonus) {
-            if (!waiting) {
-                packet >> bonus;
-                cout << "Aktualny bonus: " << bonus << endl;
-                if (bonus == Server::Jack)
-                    packet >> figureRequest;
-                else if (bonus == Server::Four)
-                    packet >> turnsToLose;
-                else if (bonus == Server::Ace)
-                    packet >> colorRequest;
-            }
-            if (waiting) {
-                int Pbonus, PfigureRequest, PturnsToLose, PcolorRequest, PmoveBack;
-
-                packet >> Pbonus;
-                if (Pbonus == Server::Jack)
-                    packet >> PfigureRequest;
-                else if (Pbonus == Server::Four)
-                    packet >> PturnsToLose;
-                else if (Pbonus == Server::Ace)
-                    packet >> PcolorRequest;
-                packet >> PmoveBack;
-
-                packet.clear();
-                packet << Server::finish;
-
-                if (Pbonus == Server::Jack)
-                    packet << Server::continueReqest;
-                else if (Pbonus == Server::Four)
-                    packet << Server::Four << PturnsToLose;
-                else
-                    packet << Pbonus;
-                if (Pbonus == Server::Jack)
-                    packet << PfigureRequest;
-                if (Pbonus == Server::Ace)
-                    packet << PcolorRequest;
-                packet << PmoveBack;
-            }
-        } else if (commandId == Client::place) {
-            packet >> myPlace;
-            cout << "Zajeto " << myPlace << " miejsce" << endl;
-            itsMyTurn = true;
-            waitPermanently = true;
-        }
-
-        return true;
-    } else
-        return false;
-}
-
-void Client::initializeButtons() {
+void GUI::initializeButtons() {
     discardButton.setFont(font);
     discardButton.setString("Rzuc");
     discardButton.setCharacterSize(20);
@@ -819,7 +600,7 @@ void Client::initializeButtons() {
     makeMoveButton.setPosition(370, 550);
 }
 
-string Client::enterInformation(string informationName, bool hidden) {
+string GUI::enterInformation(string informationName, bool hidden) {
     std::string information = "";
     sf::Event event;
     sf::Text text;
@@ -833,7 +614,7 @@ string Client::enterInformation(string informationName, bool hidden) {
             text.setString(informationName);
             window->clear(backgroundColor);
             window->draw(text);
-            window->draw(autor);
+            window->draw(author);
             window->display();
 
             if (event.type == sf::Event::TextEntered && event.key.code != sf::Keyboard::Return) {

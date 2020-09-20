@@ -11,8 +11,11 @@
 #include "../cards/Card.h"
 #include "../cards/Deck.h"
 #include "../cards/PlayerCards.h"
+#include "../connection/ServerConnection.h"
 
 using namespace std;
+
+class GUI;
 
 class Server
 {

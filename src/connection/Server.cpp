@@ -3,7 +3,6 @@
 //
 
 #include "Server.h"
-#include "../Client.h"
 
 Server::Server(unsigned int portToListen, unsigned int maxNumberOfPlayers)
 {
@@ -54,7 +53,7 @@ void Server::waitForPlayers(unsigned int definedNumberOfPlayers)
 void Server::sendCards(unsigned int clientId)
 {
     packet.clear();
-    packet << Client::cardsList << playersCards[clientId].numberOfCards;
+    packet << ServerConnection::cardsList << playersCards[clientId].numberOfCards;
     for (int i = 0; i < playersCards[clientId].numberOfCards; i++)
     {
         packet << playersCards[clientId].checkOne(i).getColor() << playersCards[clientId].checkOne(i).getFigure();
@@ -73,7 +72,7 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
         {
 
             packet.clear();
-            packet << Client::cardsList;
+            packet << ServerConnection::cardsList;
             packet << 1;
 
             Card card = deck.giveOne();
@@ -92,7 +91,7 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
             for (int i = 0; i < numberOfPlayers; i++)
                 if (i != clientId)
                     sendNumbersOfCards(i);
-            cout << "     Client " << clientId << " zadanie karty" << endl;
+            cout << "     GUI " << clientId << " zadanie karty" << endl;
         }
         else if (commandId == Server::discard)
         {
@@ -109,12 +108,12 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
             for (int i = 0; i < numberOfPlayers; i++)
                 if (i != clientId)
                     sendNumbersOfCards(i);
-            cout << "     Client " << clientId << " wyrzucenie" << endl;
+            cout << "     GUI " << clientId << " wyrzucenie" << endl;
         }
         else if (commandId == Server::finish)
         {
             packet >> bonus;
-            cout << "    Client " << clientId << " zakonczenie. Przekazany bonus: " <<bonus<< endl;
+            cout << "    GUI " << clientId << " zakonczenie. Przekazany bonus: " <<bonus<< endl;
             if (bonus == Server::Jack)
             {
                 packet >> figureRequest;
@@ -155,7 +154,7 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
             }
 
             packet.clear();
-            packet << Client::move;
+            packet << ServerConnection::move;
             while (client[actualPlayer].send(packet) != sf::Socket::Done);
             packet.clear();
             packet << -1;
@@ -165,7 +164,7 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
         else if (commandId == Server::giveBonus)
         {
             packet.clear();
-            packet<< Client::catchBonus << bonus;
+            packet << ServerConnection::catchBonus << bonus;
             if (bonus == Server::Jack)
                 packet << figureRequest;
             else if (bonus == Server::Four)
@@ -174,11 +173,11 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
                 packet << colorRequest;
             packet << moveBack;
             while (client[actualPlayer].send(packet) != sf::Socket::Done);
-            cout << "     Client " << clientId << " wysylam bonus " <<bonus << endl;
+            cout << "     GUI " << clientId << " wysylam bonus " <<bonus << endl;
         }
         else if (commandId == Server::loseTurn)
         {
-            cout << "    Client " << clientId << " utrata kolejki." << endl;
+            cout << "    GUI " << clientId << " utrata kolejki." << endl;
 
             if (moveBack)
             {
@@ -192,7 +191,7 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
             }
 
             packet.clear();
-            packet << Client::move;
+            packet << ServerConnection::move;
             while (client[actualPlayer].send(packet) != sf::Socket::Done);
             packet.clear();
             packet << -1;
@@ -201,10 +200,10 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
         }
         else if (commandId == Server::winStatus)
         {
-            cout << "    Client " << clientId << " zakonczyl rozgrywke na miejscu " << win << endl;
+            cout << "    GUI " << clientId << " zakonczyl rozgrywke na miejscu " << win << endl;
 
             packet.clear();
-            packet << Client::place << win;
+            packet << ServerConnection::place << win;
             win++;
             while (client[actualPlayer].send(packet) != sf::Socket::Done);
             playersWhoFinished[actualPlayer] = true;
@@ -213,13 +212,13 @@ bool Server::recieveSomethingAndResponse(unsigned int clientId)
             if (numberOfPlayersWhoFinished == numberOfPlayers - 1)
             {
                 packet.clear();
-                packet << Client::place << win;
+                packet << ServerConnection::place << win;
                 win++;
                 for (int i = 0; i < numberOfPlayers; i++)
                 {
                     if (playersWhoFinished[i] != true)
                     {
-                        cout << "    Client " << i << " zakonczyl rozgrywke na miejscu " << win - 1 << endl;
+                        cout << "    GUI " << i << " zakonczyl rozgrywke na miejscu " << win - 1 << endl;
                         while (client[i].send(packet) != sf::Socket::Done);
                         break;
                     }
@@ -257,7 +256,7 @@ void Server::previousPlayer()
 void Server::sendCardOnTable(unsigned int clientId)
 {
     packet.clear();
-    packet << Client::cardOnTableActualization;
+    packet << ServerConnection::cardOnTableActualization;
     for (int i = 0; i < playersCards[clientId].numberOfCards; i++)
     {
         packet << cardOnTable.getColor() << cardOnTable.getFigure() << bonus;
@@ -268,7 +267,7 @@ void Server::sendCardOnTable(unsigned int clientId)
 void Server::sendNumbersOfCards(unsigned int clientId)
 {
     packet.clear();
-    packet << Client::numbersOfCards;
+    packet << ServerConnection::numbersOfCards;
     for(int i = 1; i<numberOfPlayers; i++)
         packet<< playersCards[(clientId + i) % numberOfPlayers].numberOfCards;
     packet << 0 << 0 << 0;
@@ -291,7 +290,7 @@ void Server::game()
     }
 
     packet.clear();
-    packet << Client::move;
+    packet << ServerConnection::move;
     while(client[actualPlayer].send(packet)!=sf::Socket::Done);
     while (recieveSomethingAndResponse(actualPlayer));
     cout << "Wszyscy gracze zakonczyli rozgrywke" << endl;

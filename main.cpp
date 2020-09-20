@@ -3,14 +3,14 @@
 #include <time.h>
 #include <iostream>
 #include "src/Cards/Deck.h"
-#include "src/Client.h"
+#include "src/graphics/GUI.h"
 
 using namespace std;
 
 int main()
 {
     srand(time(NULL));
-    Client client;
+    GUI client;
     if (client.welcomeScreen())
     {
         Server server;
