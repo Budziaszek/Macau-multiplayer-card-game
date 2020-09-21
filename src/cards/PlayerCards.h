@@ -14,8 +14,6 @@ using namespace std;
 class Deck;
 
 class PlayerCards {
-    friend class Deck;
-
 public:
     PlayerCards();
 
