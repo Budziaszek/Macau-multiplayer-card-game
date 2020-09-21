@@ -6,13 +6,12 @@
 #include "Deck.h"
 
 PlayerCards::PlayerCards() {
-    numberOfCards = 52;
-    cards = new Card[numberOfCards];
+    cards = vector<Card>();
     selectedCard = -1;
 }
 
 unsigned int PlayerCards::getNumberOfCards() const {
-    return numberOfCards;
+    return cards.size();
 }
 
 Card PlayerCards::getCard(unsigned int i) {
@@ -20,60 +19,44 @@ Card PlayerCards::getCard(unsigned int i) {
 }
 
 void PlayerCards::selectCard(unsigned int i) {
-    cards[selectedCard].chosen = false;
-    cards[i].chosen = true;
+    cards[selectedCard].selected = false;
+    cards[i].selected = true;
     selectedCard = (int) i;
 }
 
 void PlayerCards::resetCardSelection() {
     if (selectedCard != -1) {
-        cards[selectedCard].chosen = false;
+        cards[selectedCard].selected = false;
         selectedCard = -1;
     }
 }
 
 void PlayerCards::show() {
-    for (int i = 0; i < numberOfCards; i++)
-        cout << cards[i].color << " " << cards[i].figure << endl;
+    for (auto &card : cards)
+        cout << card.getColor() << " " << card.getFigure() << endl;
 }
 
 void PlayerCards::draw(Deck &deck) {
-    cards[numberOfCards] = deck.giveOne();
-    numberOfCards++;
+    cards.push_back(deck.giveOne());
 }
 
 void PlayerCards::draw(Card card) {
-    cards[numberOfCards] = card;
-    numberOfCards++;
+    cards.push_back(card);
 }
 
 Card PlayerCards::discard() {
+    Card card = Card();
     if (selectedCard != -1) {
-        cards[selectedCard].chosen = false;
-        for (int i = selectedCard; i < numberOfCards - 1; i++)
-            cards[i] = cards[i + 1];
-        return cards[selectedCard];
+        cards[selectedCard].selected = false;
+        card = cards[selectedCard];
+        cards.erase(cards.begin() + selectedCard);
     }
-    return Card();
+    return card;
 }
 
 void PlayerCards::discard(unsigned int i, Deck &deck) {
     deck.getOne(cards[i]);
-    cards[i].chosen = false;
-    for (; i < numberOfCards - 1; i++)
-        cards[i] = cards[i + 1];
-    numberOfCards--;
-}
-
-void PlayerCards::discard(Card card, Deck &deck) {
-    deck.getOne(card);
-    for (int i = 0; i < numberOfCards; i++) {
-        if (cards[i].color == card.color)
-            if (cards[i].figure == card.figure) {
-                cards[i].chosen = true;
-                discard();
-                return;
-            }
-    }
+    cards[i].selected = false;
+    cards.erase(cards.begin() + selectedCard);
 }
 

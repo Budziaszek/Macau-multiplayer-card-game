@@ -6,6 +6,7 @@
 #define MACAU_PLAYERCARDS_H
 
 #include <iostream>
+#include <vector>
 #include "Card.h"
 
 using namespace std;
@@ -36,11 +37,8 @@ public:
 
     void discard(unsigned int i, Deck &deck);
 
-    void discard(Card card, Deck &deck);
-
 private:
-    Card *cards;
-    unsigned int numberOfCards;
+    vector<Card> cards;
     int selectedCard;
 };
 
