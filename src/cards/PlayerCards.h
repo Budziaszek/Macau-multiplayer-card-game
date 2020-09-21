@@ -12,25 +12,36 @@ using namespace std;
 
 class Deck;
 
-class PlayerCards
-{
+class PlayerCards {
     friend class Deck;
+
 public:
     PlayerCards();
-    Card checkOne(int which);
-    void changeChoose(int which);
-    void resetChoosen();
-    unsigned int numberOfCards;
+
+    unsigned int getNumberOfCards() const;
+
+    Card getCard(unsigned int i);
+
+    void selectCard(unsigned int i);
+
+    void resetCardSelection();
+
     void show();
+
     void draw(Deck &deck);
+
     void draw(Card card);
+
     Card discard();
-    void discard(unsigned int which, Deck& deck);
-    void discard(Card card, Deck& deck);
+
+    void discard(unsigned int i, Deck &deck);
+
+    void discard(Card card, Deck &deck);
+
 private:
-    Card* cards;
-
+    Card *cards;
+    unsigned int numberOfCards;
+    int selectedCard;
 };
-
 
 #endif //MACAU_PLAYERCARDS_H
