@@ -171,7 +171,7 @@ Card GameStatus::discardMove() {
     Card card = cards.discard();
 
     if (card.getFigure() != Card::noFigure && card.getColor() != Card::noColor) {
-        if (bonus < 0 && bonus != Server::continueReqest && bonus != Server::Jack)
+        if (bonus < 0 && bonus != Server::continueRequest && bonus != Server::Jack)
             bonus = 0;
         if (card.getFigure() == 2 || card.getFigure() == 3)
             bonus += card.getFigure();
