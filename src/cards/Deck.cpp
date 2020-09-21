@@ -36,7 +36,7 @@ PlayerCards *Deck::deal(unsigned int numberOfPlayers, unsigned int numberOfCards
 }
 
 Card Deck::getCard() {
-    if(cards.empty()) {
+    if (cards.empty()) {
         cards.swap(usedCards);
         shuffle();
     }
