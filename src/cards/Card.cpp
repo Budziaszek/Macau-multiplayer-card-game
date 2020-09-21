@@ -4,19 +4,10 @@
 
 #include "Card.h"
 
-Card::Card(unsigned int givenColor, unsigned int givenFigure) {
-    if (givenFigure > 13)
-        givenFigure = 13;
-    if (givenFigure < 0)
-        givenFigure = 0;
-    figure = givenFigure;
-
-    if (givenColor > 4)
-        givenColor = 4;
-    if (givenColor < 0)
-        givenColor = 0;
-    color = givenColor;
-    chosen = false;
+Card::Card(unsigned int color, unsigned int figure) {
+    Card::figure = toroidal(figure, 0, 13);
+    Card::color = toroidal(color, 0, 4);
+    selected = false;
 }
 
 unsigned int Card::getColor() const {

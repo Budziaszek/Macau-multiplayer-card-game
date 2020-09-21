@@ -15,7 +15,7 @@ class Card {
     friend class PlayerCards;
 
 public:
-    bool chosen;
+    bool selected;
     enum colors {
         noColor = 0,
         club = 1,
@@ -40,16 +40,23 @@ public:
         King,
     };
 
-private:
-    unsigned int color;
-    unsigned int figure;
-
-public:
-    explicit Card(unsigned int givenColour = noColor, unsigned int givenFigure = noFigure);
+    explicit Card(unsigned int colour = noColor, unsigned int figure = noFigure);
 
     unsigned int getColor() const;
 
     unsigned int getFigure() const;
+
+private:
+    unsigned int color;
+    unsigned int figure;
+
+    static unsigned int toroidal(unsigned int value, unsigned int min, unsigned int max) {
+        if (value >= max)
+            return min;
+        if (value < max)
+            return max - 1;
+        return value;
+    }
 };
 
 #endif //MACAU_CARD_H
