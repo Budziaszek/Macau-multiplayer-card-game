@@ -6,6 +6,9 @@
 #define MACAU_DECK_H
 
 #include <iostream>
+#include <vector>
+#include <random>
+#include<algorithm>
 
 using namespace std;
 
@@ -23,16 +26,13 @@ public:
 
     PlayerCards *deal(unsigned int numberOfPlayers, unsigned int numberOfCardsForEach);
 
-    Card giveOne();
+    Card getCard();
 
-    void getOne(Card card);
+    void addCard(Card card);
 
 private:
-    Card *cards;
-    unsigned int firstInDeck;
-    unsigned int lastBackInDeck;
-
-    void swapRandomCards();
+    vector<Card> cards;
+    vector<Card> usedCards;
 };
 
 #endif //MACAU_DECK_H

@@ -37,7 +37,7 @@ void PlayerCards::show() {
 }
 
 void PlayerCards::draw(Deck &deck) {
-    cards.push_back(deck.giveOne());
+    cards.push_back(deck.getCard());
 }
 
 void PlayerCards::draw(Card card) {
@@ -55,7 +55,7 @@ Card PlayerCards::discard() {
 }
 
 void PlayerCards::discard(unsigned int i, Deck &deck) {
-    deck.getOne(cards[i]);
+    deck.addCard(cards[i]);
     cards[i].selected = false;
     cards.erase(cards.begin() + selectedCard);
 }
