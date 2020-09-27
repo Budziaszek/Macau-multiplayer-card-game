@@ -2,117 +2,83 @@
 // Created by Magdalena on 20.09.2020.
 //
 
-#ifndef MACAU_GAMESTATUS_H
-#define MACAU_GAMESTATUS_H
+#ifndef MACAU_GAMESTATE_H
+#define MACAU_GAMESTATE_H
 
 #include "../cards/Card.h"
 #include "../connection/Server.h"
 
-class GameStatus {
+class GameState {
 public:
-    GameStatus();
+    GameState();
+
+    bool receivedStartPacket();
 
     void reset();
+
+    bool isWaiting() const;
+
+    bool somethingWasThrown();
 
     Card discardMove();
 
     void draw(Card card);
 
-    int getMyPlace() const;
-
-    void setMyPlace(int myPlace);
-
-    bool isMoveBack() const;
-
-    void setMoveBack(bool moveBack);
-
-    int getNumberOfCards() const;
+    unsigned int getNumberOfCards();
 
     Card getCard(int i);
 
-    void resetChoosenCard();
+    PlayerCards &getCards();
 
-    int getFigureRequest() const;
-
-    void setFigureRequest(int figureRequest);
-
-    int getColorRequest() const;
-
-    void setColorRequest(int colorRequest);
-
-    int getTurnsToLose() const;
-
-    void setTurnsToLose(int turnsToLose);
-
-    bool isItsMyTurn() const;
-
-    void setItsMyTurn(bool itsMyTurn);
-
-    bool isWaiting() const;
-
-    void setWaiting(bool waiting);
-
-    bool isWaitPermanently() const;
-
-    void setWaitPermanently(bool waitPermanently);
-
-    unsigned int getFigureOfAlreadyThrown() const;
-
-    void setFigureOfAlreadyThrown(unsigned int figureOfAlreadyThrown);
-
-    bool isSomethingWasThrown() const;
-
-    void setSomethingWasThrown(bool somethingWasThrown);
-
-    bool isSomethingWasDone() const;
-
-    void setSomethingWasDone(bool somethingWasDone);
-
-    bool isJackWasThrown() const;
-
-    void setJackWasThrown(bool jackWasThrown);
-
-    bool isAceWasThrown() const;
-
-    void setAceWasThrown(bool aceWasThrown);
-
-    bool isFourWasThrown() const;
-
-    void setFourWasThrown(bool fourWasThrown);
-
-    int getBonus() const;
-
-    void setBonus(int bonus);
-
-    unsigned int *getNumberOfOtherCards() const;
-
-    void setNumberOfOtherCards(unsigned int *numberOfOtherCards);
+    void setCards(const PlayerCards &playerCards);
 
     const Card &getCardOnTable() const;
 
-    void setCardOnTable(const Card &cardOnTable);
+    void setCardOnTable(const Card &card);
+
+    unsigned int *getNumberOfOtherCards() const;
+
+    void setNumberOfOtherCards(unsigned int *numberOfCards);
+
+    int getBonus() const;
+
+    void setBonus(int b);
+
+    int getTurnsToLose() const;
+
+    void setTurnsToLose(int turns);
+
+    const Card &getRequest() const;
+
+    void setRequest(const Card &card);
+
+    const Card &getThrown() const;
+
+    void setThrown(const Card &card);
+
+    bool isTurn() const;
+
+    void setTurn(bool doMove);
+
+    int getPlace() const;
+
+    void setPlace(int p);
+
+    bool finished();
 
 private:
-    int myPlace;
-    bool moveBack;
-    int figureRequest;
-    int colorRequest;
-    int turnsToLose;
-
-    bool itsMyTurn;
-    bool waiting;
-    bool waitPermanently;
-    unsigned int figureOfAlreadyThrown;
-    bool somethingWasThrown;
-    bool somethingWasDone;
-    bool jackWasThrown;
-    bool aceWasThrown;
-    bool fourWasThrown;
-    int bonus;
-
-    unsigned int *numberOfOtherCards;
-    Card cardOnTable;
     PlayerCards cards;
+    Card cardOnTable;
+    unsigned int *numberOfOtherCards;
+
+    int bonus;
+    int turnsToLose;
+    Card request;
+    Card thrown;
+    int waiting;
+
+    bool turn;
+    int place;
 };
 
-#endif //MACAU_GAMESTATUS_H
+#endif //MACAU_GAMESTATE_H

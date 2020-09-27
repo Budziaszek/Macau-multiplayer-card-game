@@ -5,62 +5,71 @@
 #include "GUI.h"
 
 GUI::GUI() {
+    width = 600;
+    height = 600;
+    window = nullptr;
+    event = sf::Event();
+
     backgroundColor = sf::Color(0, 102, 0, 255);
-    font.loadFromFile("../resources/font.ttf");
+
+    if (!font.loadFromFile("../resources/font.ttf")) {
+        error("Could not find required resource: font.ttf");
+        window->close();
+    }
+    if (!images.load("../resources/cards.png", sf::Vector2u(71, 96))) {
+        error("Could not find required resource: cards.png");
+        window->close();
+    }
+
+    images.initializePositions((int) width, (int) height);
+
+    playButton = Button("Play", font, 50);
+    centerText(playButton.getText(), (float) width, (float) height);
+    playButton.move(0, -25);
+
+    serverButton = Button("Start server", font, 50);
+    centerText(serverButton.getText(), (float) width, (float) height);
+    serverButton.move(0, 25);
+
+    discardButton = Button("Discard", font, 20);
+    centerText(discardButton.getText(), (float) width, (float) height);
+    discardButton.move(-100, 100);
+
+    drawButton = Button("Draw", font, 20);
+    centerText(drawButton.getText(), (float) width, (float) height);
+    drawButton.move(0, 100);
+
+    finishButton = Button("Finish", font, 20);
+    centerText(finishButton.getText(), (float) width, (float) height);
+    finishButton.move(100, 100);
+
+    author = sf::Text("Magdalena Budziaszek", font, 15);
+    sf::FloatRect textRect = author.getLocalBounds();
+    author.setOrigin(textRect.left + textRect.width, textRect.top + textRect.height);
+    author.setPosition(sf::Vector2f(width - 5, height - 5));
+    author.setFillColor(sf::Color(96, 96, 96));
+    author.setOutlineColor(sf::Color(32, 32, 32));
 }
 
 bool GUI::welcomeScreen() {
-    window = new sf::RenderWindow(sf::VideoMode(800, 600), "Makao", sf::Style::Close);
+    window = new sf::RenderWindow(sf::VideoMode(width, height), "Macau", sf::Style::Close);
 
-    author.setFont(font);
-    author.setCharacterSize(15);
-    author.setFillColor(sf::Color(96, 96, 96));
-    author.setOutlineColor(sf::Color(32, 32, 32));
-    author.setPosition(650, 580);
-    author.setString("Magdalena Budziaszek");
-
-    sf::Event event;
-    sf::Text text;
-    text.setString("Graj");
-    text.setFillColor(sf::Color::White);
-    text.setFont(font);
-    text.setCharacterSize(50);
-    text.setPosition(340, 250);
-
+    sf::Vector2f mousePosition = sf::Vector2f();
     while (window->isOpen()) {
+        window->clear(backgroundColor);
+        window->draw(playButton);
+        window->draw(serverButton);
+        window->draw(author);
+        window->display();
         while (window->pollEvent(event)) {
-            if (text.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))))
-                text.setFillColor(sf::Color::Yellow);
-            else
-                text.setFillColor(sf::Color::White);
-
-            window->clear(backgroundColor);
-            window->draw(text);
-            window->draw(author);
-            window->display();
-
-            if (event.type == sf::Event::Closed)
+            if (event.type == sf::Event::Closed) {
                 window->close();
-            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
-                if (text.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window)))) {
-                    cout << "GRAJ" << endl;
-                    if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
-                        FreeConsole();
-                    while (!serverConnection.connect(enterInformation("Wpisz ip serwera: ")));
-                    cout << "Rozpoczecie gry" << endl;
-                    window->clear(backgroundColor);
-                    text.setString("Oczekiwanie na pozostalych graczy");
-                    text.setCharacterSize(40);
-                    text.setFillColor(sf::Color::White);
-                    text.setPosition(100, 250);
-                    window->draw(text);
-                    window->display();
-                    play();
-                    window->close();
-                }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left) &&
-                sf::Keyboard::isKeyPressed(sf::Keyboard::Right))//server
-            {
+                return false;
+            }
+            mousePosition = sf::Vector2f(sf::Mouse::getPosition(*window));
+            if (playButton.checkMouseEvent(mousePosition, event))
+                playButtonClicked();
+            else if (serverButton.checkMouseEvent(mousePosition, event)) {
                 window->close();
                 return true;
             }
@@ -69,540 +78,194 @@ bool GUI::welcomeScreen() {
     return false;
 }
 
+void GUI::playButtonClicked() {
+    //FreeConsole();
+    while (!serverConnection.connect(enterInformation("Enter server ip: "))) {
+        if (window->isOpen())
+            error("Could not connect with server! Try again.");
+        else
+            return;
+    }
+    waitForPlayers();
+    play();
+    serverConnection.disconnect();
+    window->close();
+}
+
+void GUI::waitForPlayers() {
+    sf::Text info = sf::Text("Waiting for others players to connect", font, 40);
+    info.setFillColor(sf::Color::White);
+    centerText(&info, (float) width, (float) height);
+
+    while (window->isOpen() && !gameState.receivedStartPacket()) {
+        window->clear(backgroundColor);
+        window->draw(info);
+        window->display();
+        while (window->pollEvent(event))
+            if (event.type == sf::Event::Closed)
+                window->close();
+        if (serverConnection.checkSelector())
+            serverConnection.receive(&gameState);
+    }
+}
+
+void GUI::checkGameButtons(sf::Vector2f mousePosition) {
+    if (discardButton.checkMouseEvent(mousePosition, event)) {
+
+    } else if (drawButton.checkMouseEvent(mousePosition, event)) {
+
+    } else if (finishButton.checkMouseEvent(mousePosition, event)) {
+
+    }
+}
+
+void GUI::checkCardSelectionChange(sf::Vector2f mousePosition) {
+    sf::Vector2f centerCardPosition = sf::Vector2f(images.getXPosition(0), images.getYPosition(0));
+    float selectedShift = 50;
+    float step = checkCardsInterval(gameState.getNumberOfCards());
+
+    int n = (int) gameState.getNumberOfCards();
+    int c = (int) gameState.getNumberOfCards() / 2;
+
+    float minX = (float) images.getXPosition(0) - (float) c * step;
+    float maxX = (float) images.getXPosition(0) + (float) (n - c  - 1) * step + images.getSize().x;
+
+    float minY = images.getYPosition(0);
+    float maxY = images.getYPosition(0) + images.getSize().y;
+
+    if (mousePosition.x >= minX && mousePosition.x <= maxX) {
+        int cardNumber = floor((mousePosition.x - minX) / step);
+        cardNumber = cardNumber < n ? cardNumber : n - 1;
+        float shift = 0;
+        if(gameState.getCard(cardNumber).isSelected())
+            shift = selectedShift;
+        if (mousePosition.y >= minY - shift  && mousePosition.y <= maxY - shift )
+            gameState.getCards().changeCardSelection(cardNumber);
+    }
+}
+
 void GUI::play() {
-    if(!images.load("../resources/cards.png", sf::Vector2u(71, 96)))
-        return;
-    sf::Vector2i basicCardsPosition = sf::Vector2i(110, 450);
+    sf::Vector2f mousePosition = sf::Vector2f();
 
-    initializeButtons();
-
-    while (!serverConnection.receiveStartPacket(&gameStatus));
-
-    sf::Event event;
     while (window->isOpen()) {
         window->clear(backgroundColor);
-        int cardsXChange = checkCardsInterval(gameStatus.getNumberOfCards());
-        showPlayersCards(basicCardsPosition, cardsXChange);
-        showStatement();
-        if (gameStatus.isItsMyTurn())
-            showButtons();
-        showCardOnTable();
-        showOtherPlayersCards();
         window->draw(author);
+        showCardOnTable();
+        showCards();
+        if (gameState.isTurn())
+            showGameButtons();
+        showOtherPlayersCards();
         window->display();
 
         while (window->pollEvent(event)) {
-            if (gameStatus.isItsMyTurn()) {
-                if (event.type == sf::Event::MouseButtonPressed &&
-                    event.mouseButton.button == sf::Mouse::Button::Left) {
-                    if (sf::Mouse::getPosition(*window).x > basicCardsPosition.x && sf::Mouse::getPosition(*window).x <
-                                                                                    (basicCardsPosition.x +
-                                                                                     gameStatus.getNumberOfCards() *
-                                                                                     cardsXChange)) {
-                        if (sf::Mouse::getPosition(*window).y > basicCardsPosition.y &&
-                            sf::Mouse::getPosition(*window).y < basicCardsPosition.y + 96) {
-                            int whichCard = (sf::Mouse::getPosition(*window).x - basicCardsPosition.x) / cardsXChange;
-                            if (gameStatus.getBonus() == Server::Jack) {
-                                if (gameStatus.getCard(whichCard).getFigure() == gameStatus.getFigureRequest() ||
-                                        gameStatus.getCard(whichCard).getFigure() == Card::Jack)//tylko do figury lub walet
-                                    gameStatus.getCard(whichCard);
-                            } else if (gameStatus.getBonus() == Server::Four) {
-                                if (gameStatus.getCard(whichCard).getFigure() == 4 && !gameStatus.isWaiting())
-                                    gameStatus.getCard(whichCard);
-                            } else if (gameStatus.getBonus() == Server::Ace) {
-                                if (gameStatus.getCard(whichCard).getColor() == gameStatus.getColorRequest() ||
-                                        gameStatus.getCard(whichCard).getFigure() == Card::Ace) //tylko zadany kolor lub as
-                                    gameStatus.getCard(whichCard);
-                            } else if (!gameStatus.isWaiting()) {
-                                if (gameStatus.getCard(whichCard).getColor() == gameStatus.getCardOnTable().getColor() ||
-                                        gameStatus.getCard(whichCard).getFigure() ==
-                                            gameStatus.getCardOnTable().getFigure())//tylko do koloru lub figury
-                                    if (gameStatus.getFigureOfAlreadyThrown() == 0
-                                    || gameStatus.getFigureOfAlreadyThrown() == gameStatus.getCard(whichCard).getFigure())
-                                        //w jednym ruchu tylko te same figury
-                                        if (gameStatus.getBonus() <= 0 || (gameStatus.getCard(whichCard).getFigure() == 2 ||
-                                                gameStatus.getCard(whichCard).getFigure() == 3 ||
-                                                           (gameStatus.getCard(whichCard).getFigure() == Card::King &&
-                                                            (gameStatus.getCard(whichCard).getColor() == Card::heart ||
-                                                                    gameStatus.getCard(whichCard).getColor() ==
-                                                             Card::spade)))) //waleczna na waleczna
-                                            gameStatus.getCard(whichCard);
-                            }
-                        }
-                    }
-
-                    if (drawButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) &&
-                        gameStatus.isSomethingWasThrown() == false && gameStatus.getBonus() != Server::Four && !gameStatus.isWaiting()) {
-                        serverConnection.drawCards(&gameStatus);
-                        gameStatus.setBonus(0);
-                        finishTurn();
-                    }
-                    if (makeMoveButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) &&
-                        (gameStatus.isSomethingWasDone() || gameStatus.getBonus() == Server::Four || gameStatus.isWaiting())) {
-                        if (!gameStatus.isFourWasThrown() && gameStatus.getTurnsToLose() > 0)
-                            gameStatus.setWaiting(true);
-                        else {
-                            if (gameStatus.isJackWasThrown())
-                                if (realizeJackMove())
-                                    gameStatus.setBonus(Server::Jack);
-                            if (gameStatus.isAceWasThrown())
-                                if (realizeAceMove())
-                                    gameStatus.setBonus(Server::Ace);
-                        }
-                        finishTurn();
-
-                    }
-                    if (discardButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))) &&
-                        !gameStatus.isWaiting())
-                        serverConnection.discard(gameStatus.discardMove());
-
-                }
-            }
             if (event.type == sf::Event::Closed)
                 window->close();
-            if (!gameStatus.isItsMyTurn())
-                serverConnection.checkTurn(&gameStatus);
+            mousePosition = sf::Vector2f(sf::Mouse::getPosition(*window));
+            if (gameState.isTurn()) {
+                checkGameButtons(mousePosition);
+                if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Button::Left)
+                    checkCardSelectionChange(mousePosition);
+            }
         }
+
+        if (serverConnection.checkSelector())
+            serverConnection.receive(&gameState);
     }
-    serverConnection.disconnect();
 }
 
-void GUI::showPlayersCards(sf::Vector2i basicCardsPosition, int cardsXChange) {
-    images.setPosition(sf::Vector2i(basicCardsPosition.x, basicCardsPosition.y)); //delete if works without
-    int cardsYChange = checkCardsInterval(gameStatus.getNumberOfCards());
+void GUI::showCards() {
+    sf::Vector2f centerCardPosition = sf::Vector2f(images.getXPosition(0), images.getYPosition(0));
+    float selectedShift = 50;
+    float step = checkCardsInterval(gameState.getNumberOfCards());
 
-    for (int i = 0; i < gameStatus.getNumberOfCards(); i++) {
-        images.setNumber((gameStatus.getCard(i).getColor() - 1) * 13 + gameStatus.getCard(i).getFigure() - 1);
-        if (gameStatus.getCard(i).chosen == true && gameStatus.isItsMyTurn()) {
-            images.setPosition(
-                    sf::Vector2i(basicCardsPosition.x + i * cardsXChange, basicCardsPosition.y - cardsYChange));
-        } else
-            images.setPosition(sf::Vector2i(basicCardsPosition.x + i * cardsXChange, basicCardsPosition.y));
+    int c = (int) gameState.getNumberOfCards() / 2;
+    for (int i = 0; i < gameState.getNumberOfCards(); i++) {
+        images.setCard(gameState.getCard(i));
+        float x = centerCardPosition.x + step * (float) (i - c);
+        if (gameState.getCard(i).isSelected() && gameState.isTurn())
+            images.setPosition(sf::Vector2i(x, centerCardPosition.y - selectedShift));
+        else
+            images.setPosition(sf::Vector2i(x, centerCardPosition.y));
         window->draw(images);
     }
 }
 
 void GUI::showCardOnTable() {
-    images.setNumber((gameStatus.getCardOnTable().getColor() - 1) * 13 + gameStatus.getCardOnTable().getFigure() - 1);
-    images.setPosition(sf::Vector2i(400 - 35, 300 - 48));
+    unsigned int row = gameState.getCardOnTable().getColor() - 1;
+    images.setNumber(row * 13 + gameState.getCardOnTable().getFigure() - 1);
+    images.setPosition(sf::Vector2i((float) width / 2.0f - (float) images.getSize().x / 2,
+                                    (float) height / 2.0f - (float) images.getSize().y / 2));
     window->draw(images);
 }
 
 void GUI::showOtherPlayersCards() {
-    sf::RectangleShape cardDown(sf::Vector2f(71, 96));
-    cardDown.setFillColor(sf::Color(153, 0, 0, 255));
-    cardDown.setOutlineThickness(-1);
-    cardDown.setOutlineColor(sf::Color::Black);
+    sf::RectangleShape *cardBack = images.getCardBack();
 
-    int cardsXChange = checkCardsInterval(gameStatus.getNumberOfOtherCards()[0]);
-
-    cardDown.setRotation(90);
-    for (int i = 0; i < gameStatus.getNumberOfOtherCards()[0]; i++)//wyswietl karty gracza po lewej
-    {
-        cardDown.setPosition(sf::Vector2f(100, 50 + i * cardsXChange));
-        window->draw(cardDown);
+    for (int i = 1; i < 4; i++) {
+        float step = checkCardsInterval(gameState.getNumberOfOtherCards()[i - 1]);
+        int c = (int) gameState.getNumberOfOtherCards()[i - 1] / 2;
+        cardBack->setRotation(images.getRotation(i));
+        for (int j = 0; j < gameState.getNumberOfOtherCards()[i - 1]; j++) {
+            cardBack->setPosition(sf::Vector2f(
+                    images.getXPosition(i) + (float) (j - c) * images.getXStep(i) * step,
+                    images.getYPosition(i) + (float) (j - c) * images.getYStep(i) * step));
+            window->draw(*cardBack);
+        }
     }
-
-    cardsXChange = checkCardsInterval(gameStatus.getNumberOfOtherCards()[1]);
-
-    cardDown.setRotation(0);
-    for (int i = 0; i < gameStatus.getNumberOfOtherCards()[1]; i++)//wyswietl karty gracza u gory
-    {
-        cardDown.setPosition(sf::Vector2f(150 + i * cardsXChange, 50));
-        window->draw(cardDown);
-    }
-
-    cardsXChange = checkCardsInterval(gameStatus.getNumberOfOtherCards()[2]);
-
-    cardDown.setRotation(90);
-    for (int i = 0; i < gameStatus.getNumberOfOtherCards()[2]; i++)//wyswietl karty z prawej
-    {
-        cardDown.setPosition(sf::Vector2f(800 - 50, 600 - 150 - i * cardsXChange));
-        window->draw(cardDown);
-    }
-
 }
 
 void GUI::showStatement() {
-    sf::Text bonusToTake;
-    bonusToTake.setFont(font);
-    bonusToTake.setCharacterSize(15);
-    bonusToTake.setPosition(200, 400);
-
-    string communicatToTake = "Kart do wziecia: ";
-    string communicatRequest = "Zadanie: ";
-    string communicatWait = "Kolejki do odstania: ";
-    string communicatWin = "Gratulacje. Zajales miejsce ";
-    string communicatLose = "Przegrales! Zajales miejsce ";
-
-    if (gameStatus.getBonus() > 0) {
-        bonusToTake.setString(communicatToTake + std::to_string(gameStatus.getBonus()));
-        window->draw(bonusToTake);
-    }
-    if (gameStatus.getBonus() == Server::Jack) {
-        if (gameStatus.getFigureRequest() == Card::Queen)
-            bonusToTake.setString(communicatRequest + "Q");
-        else
-            bonusToTake.setString(communicatRequest + std::to_string(gameStatus.getFigureRequest()));
-        window->draw(bonusToTake);
-    }
-    if (gameStatus.getBonus() == Server::Ace) {
-        string colorStringRequest;
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)) {
-            if (gameStatus.getColorRequest() == 1)
-                colorStringRequest = "trefl (koniczyna)";
-            if (gameStatus.getColorRequest() == 2)
-                colorStringRequest = "kier (serce)";
-            if (gameStatus.getColorRequest() == 3)
-                colorStringRequest = "pik (lisc)";
-            if (gameStatus.getColorRequest() == 4)
-                colorStringRequest = "karo (diament)";
-        } else {
-            if (gameStatus.getColorRequest() == 1)
-                colorStringRequest = "trefl";
-            if (gameStatus.getColorRequest() == 2)
-                colorStringRequest = "kier";
-            if (gameStatus.getColorRequest() == 3)
-                colorStringRequest = "pik";
-            if (gameStatus.getColorRequest() == 4)
-                colorStringRequest = "karo";
-        }
-
-        bonusToTake.setString(communicatRequest + colorStringRequest);
-        window->draw(bonusToTake);
-    }
-    if (gameStatus.getTurnsToLose() > 0) {
-        bonusToTake.setString(communicatWait + std::to_string(gameStatus.getTurnsToLose()));
-        window->draw(bonusToTake);
-    }
-    if (gameStatus.isWaitPermanently()) {
-        if (gameStatus.getNumberOfCards() > 0)
-            bonusToTake.setString(communicatLose + std::to_string(gameStatus.getMyPlace()));
-        else
-            bonusToTake.setString(communicatWin + std::to_string(gameStatus.getMyPlace()));
-        window->draw(bonusToTake);
-    }
 }
 
-void GUI::showButtons() {
-    if (gameStatus.isWaitPermanently())
+void GUI::showGameButtons() {
+    if (gameState.finished())
         return;
-    if (drawButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))))
-        drawButton.setFillColor(sf::Color::Yellow);
-    else
-        drawButton.setFillColor(sf::Color::White);
-
-    if (makeMoveButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))))
-        makeMoveButton.setFillColor(sf::Color::Yellow);
-    else
-        makeMoveButton.setFillColor(sf::Color::White);
-
-    if (discardButton.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*window))))
-        discardButton.setFillColor(sf::Color::Yellow);
-    else
-        discardButton.setFillColor(sf::Color::White);
-
-    if (gameStatus.isSomethingWasDone() || gameStatus.isWaiting() || gameStatus.getBonus() == Server::Four)
-        window->draw(makeMoveButton);
-    if (!gameStatus.isWaiting())
-        window->draw(discardButton);
-    if (!gameStatus.isSomethingWasThrown() && gameStatus.getBonus() != Server::Four && !gameStatus.isWaiting())
-        window->draw(drawButton);
+    window->draw(drawButton);
+    window->draw(discardButton);
+    window->draw(finishButton);
 }
 
 void GUI::finishTurn() {
-    if (!gameStatus.isWaiting()) {
 
-        if (gameStatus.getNumberOfCards() == 0) {
-            gameStatus.setWaitPermanently(true);
-            serverConnection.victory(&gameStatus);
-        }
+}
 
-        serverConnection.finishTurn(&gameStatus);
+void GUI::centerText(sf::Text *text, float windowWidth, float windowHeight) {
+    sf::FloatRect textRect = text->getLocalBounds();
+    text->setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
+    text->setPosition(sf::Vector2f(windowWidth / 2.0f, windowHeight / 2.0f));
+}
 
-        if (gameStatus.getBonus() == Server::Four && gameStatus.isFourWasThrown())
-            gameStatus.setTurnsToLose(0);
-        gameStatus.reset();
-        gameStatus.resetChoosenCard();
-        cout << "Zakonczono kolejke" << endl;
-    } else {
-        if (gameStatus.getBonus() == Server::wait) {
-            serverConnection.loseTurn();
-            gameStatus.setItsMyTurn(false);
-            gameStatus.setSomethingWasDone(false);
-            cout << "Kolejka zakonczona (utrata) - kolejna" << endl;
-        } else {
-            serverConnection.finish();
-            gameStatus.setBonus(Server::wait);
-            gameStatus.setItsMyTurn(false);
-            gameStatus.setSomethingWasDone(true);
-            cout << "Kolejka zakonczona (utrata) - pierwsza" << endl;
-        }
-        gameStatus.setTurnsToLose(gameStatus.getTurnsToLose() - 1);
-        if (gameStatus.getTurnsToLose() == 0)
-            gameStatus.setWaiting(false);
+void GUI::error(const string &info) {
+    auto *errorWindow = new sf::RenderWindow(sf::VideoMode(400, 200),
+                                             "ERROR", sf::Style::Close);
+    sf::Text text = sf::Text(info, font, 20);
+    centerText(&text, 400, 200);
+    text.setFillColor(sf::Color::Red);
+
+    while (errorWindow->isOpen()) {
+        errorWindow->clear(sf::Color::White);
+        errorWindow->draw(text);
+        errorWindow->display();
+        while (errorWindow->pollEvent(event))
+            if (event.type == sf::Event::Closed)
+                errorWindow->close();
     }
 }
 
 bool GUI::realizeJackMove() {
-    sf::RenderWindow *miniWindow = new sf::RenderWindow(sf::VideoMode(200, 200), "Zadanie (Walet)", sf::Style::Close);
 
-    sf::Event event;
-    sf::Text tak, nie;
-    tak.setString("Tak");
-    tak.setFillColor(sf::Color::White);
-    tak.setFont(font);
-    tak.setCharacterSize(20);
-    tak.setPosition(50, 100);
-
-    nie.setString("Nie");
-    nie.setFillColor(sf::Color::White);
-    nie.setFont(font);
-    nie.setCharacterSize(20);
-    nie.setPosition(150, 100);
-
-    sf::Text information;
-    information.setString("Czy chcesz zazadac figury?");
-    information.setFillColor(sf::Color::White);
-    information.setFont(font);
-    information.setCharacterSize(15);
-    information.setPosition(10, 20);
-
-    while (miniWindow->isOpen()) {
-        while (miniWindow->pollEvent(event)) {
-            if (tak.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow))))
-                tak.setFillColor(sf::Color::Yellow);
-            else
-                tak.setFillColor(sf::Color::White);
-
-            if (nie.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow))))
-                nie.setFillColor(sf::Color::Yellow);
-            else
-                nie.setFillColor(sf::Color::White);
-
-            miniWindow->clear(backgroundColor);
-            miniWindow->draw(tak);
-            miniWindow->draw(nie);
-            miniWindow->draw(information);
-            miniWindow->display();
-
-            if (event.type == sf::Event::Closed) {
-                miniWindow->close();
-                return false;
-            }
-            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
-                if (nie.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-                    miniWindow->close();
-                    return false;
-                }
-            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
-                if (tak.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-
-                    sf::Text tab[7];
-                    tab[0].setString("5");
-                    tab[1].setString("6");
-                    tab[2].setString("7");
-                    tab[3].setString("8");
-                    tab[4].setString("9");
-                    tab[5].setString("10");
-                    tab[6].setString("Q");
-
-                    for (int i = 0; i < 7; i++) {
-                        tab[i].setFillColor(sf::Color::White);
-                        tab[i].setFont(font);
-                        tab[i].setCharacterSize(20);
-                        tab[i].setPosition(50, 20 + i * 15);
-                    }
-
-                    while (miniWindow->isOpen()) {
-                        while (miniWindow->pollEvent(event)) {
-                            for (int i = 0; i < 7; i++) {
-
-                                if (tab[i].getGlobalBounds().contains(
-                                        sf::Vector2f(sf::Mouse::getPosition(*miniWindow))))
-                                    tab[i].setFillColor(sf::Color::Yellow);
-                                else
-                                    tab[i].setFillColor(sf::Color::White);
-                            }
-                            for (int i = 0; i < 7; i++) {
-                                if (event.type == sf::Event::MouseButtonPressed &&
-                                    event.mouseButton.button == sf::Mouse::Left)
-                                    if (tab[i].getGlobalBounds().contains(
-                                            sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-                                        if (i == 6)
-                                            gameStatus.setFigureRequest(Card::Queen);
-                                        else
-                                            gameStatus.setFigureRequest(i + 5);
-                                        miniWindow->close();
-                                    }
-                            }
-
-                            miniWindow->clear(backgroundColor);
-                            for (int i = 0; i < 7; i++)
-                                miniWindow->draw(tab[i]);
-                            miniWindow->display();
-                        }
-                    }
-
-                    return true;
-                }
-        }
-    }
-    return false;
 }
 
 bool GUI::realizeAceMove() {
-    sf::RenderWindow *miniWindow = new sf::RenderWindow(sf::VideoMode(200, 200), "Zadanie (As)", sf::Style::Close);
 
-    sf::Event event;
-    sf::Text tak, nie;
-    tak.setString("Tak");
-    tak.setFillColor(sf::Color::White);
-    tak.setFont(font);
-    tak.setCharacterSize(20);
-    tak.setPosition(50, 100);
-
-    nie.setString("Nie");
-    nie.setFillColor(sf::Color::White);
-    nie.setFont(font);
-    nie.setCharacterSize(20);
-    nie.setPosition(150, 100);
-
-    sf::Text information;
-    information.setString("Czy chcesz zazadac koloru?");
-    information.setFillColor(sf::Color::White);
-    information.setFont(font);
-    information.setCharacterSize(15);
-    information.setPosition(10, 20);
-
-    while (miniWindow->isOpen()) {
-        while (miniWindow->pollEvent(event)) {
-            if (tak.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow))))
-                tak.setFillColor(sf::Color::Yellow);
-            else
-                tak.setFillColor(sf::Color::White);
-
-            if (nie.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow))))
-                nie.setFillColor(sf::Color::Yellow);
-            else
-                nie.setFillColor(sf::Color::White);
-
-            miniWindow->clear(backgroundColor);
-            miniWindow->draw(tak);
-            miniWindow->draw(nie);
-            miniWindow->draw(information);
-            miniWindow->display();
-
-            if (event.type == sf::Event::Closed) {
-                miniWindow->close();
-                return false;
-            }
-            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
-                if (nie.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-                    miniWindow->close();
-                    return false;
-                }
-            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
-                if (tak.getGlobalBounds().contains(sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-
-                    sf::Text tab[4];
-                    tab[0].setString("trefl");
-                    tab[1].setString("kier ");
-                    tab[2].setString("pik ");
-                    tab[3].setString("karo");
-
-                    sf::Text tabBig[4];
-                    tabBig[0].setString("trefl (koniczyna)");
-                    tabBig[1].setString("kier (serce)");
-                    tabBig[2].setString("pik (lisc)");
-                    tabBig[3].setString("karo (diament)");
-
-                    for (int i = 0; i < 4; i++) {
-                        tab[i].setFillColor(sf::Color::White);
-                        tab[i].setFont(font);
-                        tab[i].setCharacterSize(20);
-                        tab[i].setPosition(45, 30 + i * 15);
-
-                        tabBig[i].setFillColor(sf::Color::White);
-                        tabBig[i].setFont(font);
-                        tabBig[i].setCharacterSize(20);
-                        tabBig[i].setPosition(45, 30 + i * 15);
-                    }
-
-                    while (miniWindow->isOpen()) {
-                        while (miniWindow->pollEvent(event)) {
-                            for (int i = 0; i < 4; i++) {
-
-                                if (tab[i].getGlobalBounds().contains(
-                                        sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-                                    tab[i].setFillColor(sf::Color::Yellow);
-                                    tabBig[i].setFillColor(sf::Color::Yellow);
-                                } else {
-                                    tab[i].setFillColor(sf::Color::White);
-                                    tabBig[i].setFillColor(sf::Color::Yellow);
-                                }
-                            }
-                            for (int i = 0; i < 4; i++) {
-                                if (event.type == sf::Event::MouseButtonPressed &&
-                                    event.mouseButton.button == sf::Mouse::Left)
-                                    if (tab[i].getGlobalBounds().contains(
-                                            sf::Vector2f(sf::Mouse::getPosition(*miniWindow)))) {
-                                        gameStatus.setColorRequest(i + 1);
-                                        miniWindow->close();
-                                    }
-                            }
-
-                            miniWindow->clear(backgroundColor);
-                            for (int i = 0; i < 4; i++) {
-                                if (sf::Keyboard::isKeyPressed(sf::Keyboard::RShift))
-                                    miniWindow->draw(tabBig[i]);
-                                else
-                                    miniWindow->draw(tab[i]);
-                            }
-                            miniWindow->display();
-                        }
-                    }
-
-                    return true;
-                }
-        }
-    }
-    return false;
 }
 
-int GUI::checkCardsInterval(int numberOfCards) {
-    if (numberOfCards <= 8)
-        return 50;
-    if (numberOfCards < 16)
-        return 30;
-    if (numberOfCards < 24)
-        return 20;
-    if (numberOfCards < 32)
-        return 10;
-    else
-        return 5;
-}
-
-void GUI::initializeButtons() {
-    discardButton.setFont(font);
-    discardButton.setString("Rzuc");
-    discardButton.setCharacterSize(20);
-    discardButton.setPosition(130, 550);
-
-    drawButton.setFont(font);
-    drawButton.setString("Ciagnij");
-    drawButton.setCharacterSize(20);
-    drawButton.setPosition(250, 550);
-
-    makeMoveButton.setFont(font);
-    makeMoveButton.setString("Zakoncz ruch");
-    makeMoveButton.setCharacterSize(20);
-    makeMoveButton.setPosition(370, 550);
+float GUI::checkCardsInterval(unsigned int numberOfCards) {
+    return floor(250.f / (float) numberOfCards);
 }
 
 string GUI::enterInformation(string informationName, bool hidden) {
-    std::string information = "";
-    sf::Event event;
+    string information;
     sf::Text text;
     text.setFont(font);
     text.setFillColor(sf::Color::White);
@@ -623,17 +286,14 @@ string GUI::enterInformation(string informationName, bool hidden) {
                     informationName.erase(informationName.size() - 1, 1);
                 } else if (event.key.code != sf::Keyboard::Return) {
                     information += static_cast<char>(event.text.unicode);
-                    if (hidden == false)
+                    if (!hidden)
                         informationName += static_cast<char>(event.text.unicode);
                     else
                         informationName += "*";
                 }
             }
-            if (event.type == sf::Event::Closed) {
+            if (event.type == sf::Event::Closed)
                 window->close();
-                return "";
-            }
-
             if (event.key.code == sf::Keyboard::Return && information.length() > 0)
                 return information;
         }

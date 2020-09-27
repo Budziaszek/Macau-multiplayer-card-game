@@ -18,15 +18,22 @@ Card PlayerCards::getCard(unsigned int i) {
     return cards[i];
 }
 
-void PlayerCards::selectCard(unsigned int i) {
-    cards[selectedCard].selected = false;
-    cards[i].selected = true;
-    selectedCard = (int) i;
+void PlayerCards::changeCardSelection(unsigned int i) {
+    if (cards[i].isSelected()) {
+        cards[i].setSelected(false);
+        selectedCard = -1;
+    }
+    else {
+        resetCardSelection();
+        cards[i].setSelected(true);
+        selectedCard = (int) i;
+    }
+
 }
 
 void PlayerCards::resetCardSelection() {
     if (selectedCard != -1) {
-        cards[selectedCard].selected = false;
+        cards[selectedCard].setSelected(false);
         selectedCard = -1;
     }
 }
@@ -47,7 +54,7 @@ void PlayerCards::draw(Card card) {
 Card PlayerCards::discard() {
     Card card = Card();
     if (selectedCard != -1) {
-        cards[selectedCard].selected = false;
+        cards[selectedCard].setSelected(false);
         card = cards[selectedCard];
         cards.erase(cards.begin() + selectedCard);
     }
@@ -56,7 +63,7 @@ Card PlayerCards::discard() {
 
 void PlayerCards::discard(unsigned int i, Deck &deck) {
     deck.addCard(cards[i]);
-    cards[i].selected = false;
+    cards[i].setSelected(false);
     cards.erase(cards.begin() + selectedCard);
 }
 

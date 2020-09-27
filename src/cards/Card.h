@@ -7,7 +7,6 @@
 
 class Card {
 public:
-    bool selected;
     enum colors {
         noColor = 0,
         club = 1,
@@ -38,15 +37,26 @@ public:
 
     unsigned int getFigure() const;
 
+    bool isSpecial() const;
+
+    bool isSelected() const;
+
+    void setSelected(bool s);
+
+    void changeSelection();
+
 private:
     unsigned int color;
     unsigned int figure;
+    bool selected;
 
-    static unsigned int toroidal(unsigned int value, unsigned int min, unsigned int max) {
-        if (value >= max)
+private:
+
+    static unsigned int check(unsigned int value, unsigned int min, unsigned int max) {
+        if (value > max)
+            return max;
+        if (value < min)
             return min;
-        if (value < max)
-            return max - 1;
         return value;
     }
 };

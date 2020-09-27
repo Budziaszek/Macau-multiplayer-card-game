@@ -26,10 +26,10 @@ void Deck::shuffle(unsigned int times) {
 }
 
 PlayerCards *Deck::deal(unsigned int numberOfPlayers, unsigned int numberOfCardsForEach) {
-    auto *playersCards = new PlayerCards[numberOfPlayers];
+    auto* playersCards = new PlayerCards[numberOfPlayers];
     for (int i = 0; i < numberOfCardsForEach; i++)
         for (int j = 0; j < numberOfPlayers; j++) {
-            playersCards->draw(cards.back());
+            playersCards[j].draw(cards.back());
             cards.pop_back();
         }
     return playersCards;

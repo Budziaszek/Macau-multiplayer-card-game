@@ -10,13 +10,15 @@
 #include <Windows.h>
 #include <iostream>
 #include "../cards/Card.h"
-#include "../cards/CardsImages.h"
+#include "CardsImages.h"
 #include "../cards/PlayerCards.h"
 #include "../connection/Server.h"
+#include "Button.h"
 
 using namespace std;
 
-class GameStatus;
+class GameState;
+
 class ServerConnection;
 
 class GUI {
@@ -28,11 +30,16 @@ public:
     void play();
 
 private:
+    unsigned int width;
+    unsigned int height;
     sf::RenderWindow *window;
+    sf::Event event;
 
-    sf::Text makeMoveButton;
-    sf::Text drawButton;
-    sf::Text discardButton;
+    Button playButton;
+    Button serverButton;
+    Button finishButton;
+    Button drawButton;
+    Button discardButton;
     sf::Text author;
 
     CardsImages images;
@@ -41,11 +48,11 @@ private:
     sf::Color backgroundColor;
 
     ServerConnection serverConnection;
-    GameStatus gameStatus;
+    GameState gameState;
 
     void finishTurn();
 
-    void showPlayersCards(sf::Vector2i basicCardsPosition, int cardsXChange);
+    void showCards();
 
     void showOtherPlayersCards();
 
@@ -53,9 +60,13 @@ private:
 
     void showStatement();
 
-    void showButtons();
+    void showGameButtons();
 
-    int checkCardsInterval(int numberOfCards);
+    void checkGameButtons(sf::Vector2f mousePosition);
+
+    void checkCardSelectionChange(sf::Vector2f mousePosition);
+
+    static float checkCardsInterval(unsigned int numberOfCards);
 
     bool realizeJackMove();
 
@@ -63,7 +74,13 @@ private:
 
     string enterInformation(string informationName, bool hidden = false);
 
-    void initializeButtons();
+    void playButtonClicked();
+
+    void waitForPlayers();
+
+    void error(const string &info);
+
+    static void centerText(sf::Text *text, float windowWidth, float windowHeight);
 };
 
 

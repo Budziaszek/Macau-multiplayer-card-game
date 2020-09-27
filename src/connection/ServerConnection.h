@@ -7,35 +7,33 @@
 
 #include "SFML/Network.hpp"
 #include "../cards/Card.h"
-#include "../game/GameStatus.h"
+#include "../game/GameState.h"
 
 using namespace std;
 
-class GameStatus;
+class GameState;
 
 class ServerConnection {
 public:
+    ServerConnection();
+
     enum commands {
-        move = 0, //informacja o tym, ze kolej na gracza
-        cardsList, //arg: ilosc kart (przy rozdaniu, ciagnieciu), kolor, figura, kolor....
-        cardOnTableActualization, //kolor, figura
-        numbersOfCards, //3 liczby, informuja o ilosci kart innych
-        catchBonus, //przyjmuje bonus
-        place //przyjmuje informacje o zaj�tym miejscu (po zwyci�stwie)
+        move = 0,
+        cards,
+        cardOnTable,
+        opponents,
+        bonus,
+        victory
     };
 
-    explicit ServerConnection(unsigned int serverPort = 22);
-    bool connect(const string& ip);
-    bool receiveStartPacket(GameStatus *gameStatus);
+    bool connect(const string &ip, unsigned int serverPort = 22);
+
     void disconnect();
-    void checkTurn(GameStatus *gameStatus);
-    bool receiveSomething(GameStatus *gameStatus);
-    void drawCards(GameStatus *gameStatus);
-    void discard(Card card);
-    void victory(GameStatus *gameStatus);
-    void finishTurn(GameStatus *gameStatus);
-    void loseTurn();
-    void finish();
+
+    bool checkSelector();
+
+    void receive(GameState *gameState);
+
 private:
     unsigned int port;
     sf::IpAddress serverIp;
@@ -43,6 +41,25 @@ private:
     sf::SocketSelector selector;
     sf::Packet packet;
 
+    void checkTurn(GameState *gameState);
+
+    void actualizeCardOnTable(GameState *gameState);
+
+    void drawCards(GameState *gameState);
+
+    void actualizeNumberOfOtherCards(GameState *gameState);
+
+    void actualizeBonus(GameState *gameState);
+
+    void actualizeVictory(GameState *gameState);
+
+    void discard(Card card);
+
+    void finishTurn(GameState *gameState);
+
+    void loseTurn();
+
+    void finish();
 };
 
 #endif //MACAU_SERVERCONNECTION_H

@@ -17,59 +17,92 @@ using namespace std;
 
 class GUI;
 
-class Server
-{
+class Server {
 public:
-    Server(unsigned int portToListen = 22, unsigned int maxNumberOfPlayers = 4);
-    bool startListening();
-    void waitForPlayers(unsigned int definedNumberOfPlayers);
-    void game();
-    void sendCards(unsigned int clientId);
-    bool recieveSomethingAndResponse(unsigned int clientId);
-    void sendCardOnTable(unsigned int clientId);
-    void nextPlayer();
-    void previousPlayer();
-    void sendNumbersOfCards(unsigned int clientId);
-    bool* playersWhoFinished;
+    Server(unsigned int portToListen = 22, unsigned int places = 4);
+
+    void start();
+
+    bool *playersWhoFinished;
     int numberOfPlayersWhoFinished;
 
-    enum commands
-    {
-        finish = 0, //zakonczenie ruchu, server ma przejsc do nastepnego gracza
-        draw, //server ma da� graczowi okreslona ilosc kart (1 jesli brak "bonus�w")
-        discard, //+ argumenty opisujace wyrzucona karte
-        giveBonus, //odsyla informacje o bonusie
-        loseTurn //gracz zada utraty kolejki (ma do odstania z powodu 4)
+    enum commands {
+        finishTurn = 0,
+        drawCards,
+        discardCard,
+        updateStatus,
+        missTurn,
+        victory
     };
-    enum bonusUnderZeroStatus
-    {
-        winStatus = -6,
+    enum bonusUnderZeroStatus {
         wait = -5,
-        continueReqest = -4,
+        continueRequest = -4,
         Four = -3,
         Ace = -2,
         Jack = -1
     };
 
 private:
+    Deck deck;
+    Card cardOnTable;
+
+    sf::TcpSocket *clients;
+    sf::SocketSelector selector;
+
+    unsigned int maxNumberOfPlayers;
+    unsigned int numberOfPlayers;
+    unsigned int actualPlayer;
+    int *playersCardsCounts;
+
     int win;
     bool moveBack;
     int whoRequested;
     int turnsToLose;
     int figureRequest;
     int colorRequest;
-    unsigned int actualPlayer;
-    Card cardOnTable;
-    sf::TcpSocket* client;
+
     unsigned int port;
-    unsigned int numberOfPlayers;
     unsigned int maximumNumberOfPlayers;
-    PlayerCards* playersCards;
     sf::TcpListener listener;
     sf::Packet packet;
 
     int bonus;
-    Deck deck;
+
+    bool startListening();
+
+    void waitForPlayers();
+
+    void prepareGame();
+
+    void game();
+
+    bool checkContinueGame() const;
+
+    void sendCards(unsigned int clientId, PlayerCards playerCards);
+
+    bool checkSelector(unsigned int clientId);
+
+    void receiveAndResponse(unsigned int clientId);
+
+    void sendCardOnTable(unsigned int clientId);
+
+    void nextPlayer();
+
+    void previousPlayer();
+
+    void sendNumbersOfCards(unsigned int clientId);
+
+    void commandDrawCard(unsigned int clientId);
+
+    void commandDiscard(unsigned int clientId);
+
+    void commandFinishTurn(unsigned int clientId);
+
+    void commandUpdateStatus(unsigned int clientId);
+
+    void commandMissTurn(unsigned int clientId);
+
+    void commandVictory(unsigned int clientId);
 };
 
 #endif //MACAU_SERVER_H

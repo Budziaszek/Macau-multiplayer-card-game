@@ -21,7 +21,7 @@ public:
 
     Card getCard(unsigned int i);
 
-    void selectCard(unsigned int i);
+    void changeCardSelection(unsigned int i);
 
     void resetCardSelection();
 

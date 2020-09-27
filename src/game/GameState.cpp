@@ -2,218 +2,168 @@
 // Created by Magdalena on 20.09.2020.
 //
 
-#include "GameStatus.h"
+#include "GameState.h"
 
-GameStatus::GameStatus() {
-    myPlace = -1;
-    numberOfOtherCards = new unsigned int[3];
-    moveBack = false;
-    itsMyTurn = false;
-    somethingWasThrown = false;
-    jackWasThrown = false;
-    aceWasThrown = false;
-    fourWasThrown = false;
-    waiting = false;
-    figureOfAlreadyThrown = Card::noFigure;
-}
+GameState::GameState() {
+    cards = PlayerCards();
+    cardOnTable = Card();
+    numberOfOtherCards = new unsigned int[3]{0, 0, 0};
 
-int GameStatus::getMyPlace() const {
-    return myPlace;
-}
-
-void GameStatus::setMyPlace(int myPlace) {
-    GameStatus::myPlace = myPlace;
-}
-
-bool GameStatus::isMoveBack() const {
-    return moveBack;
-}
-
-void GameStatus::setMoveBack(bool moveBack) {
-    GameStatus::moveBack = moveBack;
-}
-
-int GameStatus::getFigureRequest() const {
-    return figureRequest;
-}
-
-void GameStatus::setFigureRequest(int figureRequest) {
-    GameStatus::figureRequest = figureRequest;
-}
-
-int GameStatus::getColorRequest() const {
-    return colorRequest;
-}
-
-void GameStatus::setColorRequest(int colorRequest) {
-    GameStatus::colorRequest = colorRequest;
-}
-
-int GameStatus::getTurnsToLose() const {
-    return turnsToLose;
-}
-
-void GameStatus::setTurnsToLose(int turnsToLose) {
-    GameStatus::turnsToLose = turnsToLose;
-}
-
-bool GameStatus::isItsMyTurn() const {
-    return itsMyTurn;
-}
-
-void GameStatus::setItsMyTurn(bool itsMyTurn) {
-    GameStatus::itsMyTurn = itsMyTurn;
-}
-
-bool GameStatus::isWaiting() const {
-    return waiting;
-}
-
-void GameStatus::setWaiting(bool waiting) {
-    GameStatus::waiting = waiting;
-}
-
-bool GameStatus::isWaitPermanently() const {
-    return waitPermanently;
-}
-
-void GameStatus::setWaitPermanently(bool waitPermanently) {
-    GameStatus::waitPermanently = waitPermanently;
-}
-
-unsigned int GameStatus::getFigureOfAlreadyThrown() const {
-    return figureOfAlreadyThrown;
-}
-
-void GameStatus::setFigureOfAlreadyThrown(unsigned int figureOfAlreadyThrown) {
-    GameStatus::figureOfAlreadyThrown = figureOfAlreadyThrown;
-}
-
-bool GameStatus::isSomethingWasThrown() const {
-    return somethingWasThrown;
-}
-
-void GameStatus::setSomethingWasThrown(bool somethingWasThrown) {
-    GameStatus::somethingWasThrown = somethingWasThrown;
-}
-
-bool GameStatus::isSomethingWasDone() const {
-    return somethingWasDone;
-}
-
-void GameStatus::setSomethingWasDone(bool somethingWasDone) {
-    GameStatus::somethingWasDone = somethingWasDone;
-}
-
-bool GameStatus::isJackWasThrown() const {
-    return jackWasThrown;
-}
-
-void GameStatus::setJackWasThrown(bool jackWasThrown) {
-    GameStatus::jackWasThrown = jackWasThrown;
-}
-
-bool GameStatus::isAceWasThrown() const {
-    return aceWasThrown;
-}
-
-void GameStatus::setAceWasThrown(bool aceWasThrown) {
-    GameStatus::aceWasThrown = aceWasThrown;
-}
-
-bool GameStatus::isFourWasThrown() const {
-    return fourWasThrown;
-}
-
-void GameStatus::setFourWasThrown(bool fourWasThrown) {
-    GameStatus::fourWasThrown = fourWasThrown;
-}
-
-int GameStatus::getBonus() const {
-    return bonus;
-}
-
-void GameStatus::setBonus(int bonus) {
-    GameStatus::bonus = bonus;
-}
-
-unsigned int *GameStatus::getNumberOfOtherCards() const {
-    return numberOfOtherCards;
-}
-
-void GameStatus::setNumberOfOtherCards(unsigned int *numberOfOtherCards) {
-    GameStatus::numberOfOtherCards = numberOfOtherCards;
-}
-
-const Card &GameStatus::getCardOnTable() const {
-    return cardOnTable;
-}
-
-void GameStatus::setCardOnTable(const Card &cardOnTable) {
-    GameStatus::cardOnTable = cardOnTable;
-}
-
-void GameStatus::reset() {
     bonus = 0;
     turnsToLose = 0;
-    moveBack = false;
-    jackWasThrown = false;
-    aceWasThrown = false;
-    fourWasThrown = false;
-    itsMyTurn = false;
-    somethingWasThrown = false;
-    figureOfAlreadyThrown = Card::noFigure;
-    somethingWasDone = false;
+    request = Card();
+    thrown = Card();
+
+    turn = false;
+    place = -1;
 }
 
-Card GameStatus::discardMove() {
-    somethingWasThrown = true;
+bool GameState::receivedStartPacket() {
+    if(cardOnTable.getFigure() != Card::noFigure && cardOnTable.getColor() != Card::noColor)
+        return true;
+    return false;
+}
+
+void GameState::reset() {
+    bonus = 0;
+    turnsToLose = 0;
+    request = Card();
+    thrown = Card();
+
+    turn = false;
+}
+
+bool GameState::isWaiting() const {
+    return waiting > 0;
+}
+
+bool GameState::somethingWasThrown() {
+    return thrown.getFigure() != Card::noFigure && thrown.getColor() != Card::noColor;
+}
+
+Card GameState::discardMove() {
     Card card = cards.discard();
-
-    if (card.getFigure() != Card::noFigure && card.getColor() != Card::noColor) {
-        if (bonus < 0 && bonus != Server::continueRequest && bonus != Server::Jack)
-            bonus = 0;
-        if (card.getFigure() == 2 || card.getFigure() == 3)
-            bonus += card.getFigure();
-        else if (card.getFigure() == Card::King && card.getColor() == Card::heart) {
-            bonus += 5;
-            moveBack = false;
-        } else if (card.getFigure() == Card::King && card.getColor() == Card::spade) {
-            bonus += 5;
-            moveBack = true;
-        } else if (card.getFigure() == Card::Jack)
-            jackWasThrown = true;
-        else if (card.getFigure() == Card::Ace)
-            aceWasThrown = true;
-        else if (card.getFigure() == Card::Four) {
-            turnsToLose++;
-            fourWasThrown = true;
-            waiting = false;
-        }
-
-        cardOnTable = card;
-        figureOfAlreadyThrown = card.getFigure();
-        somethingWasDone = true;
-
-        if (bonus == Server::Ace)
-            bonus = 0;
-
-        return card;
-    }
+    thrown = card;
+    cardOnTable = card;
+    return card;
+//    if (card.getFigure() != Card::noFigure && card.getColor() != Card::noColor) {
+//        if (bonus < 0 && bonus != Server::continueRequest && bonus != Server::Jack)
+//            bonus = 0;
+//        if (card.getFigure() == 2 || card.getFigure() == 3)
+//            bonus += card.getFigure();
+//        else if (card.getFigure() == Card::King && card.getColor() == Card::heart) {
+//            bonus += 5;
+//            moveBack = false;
+//        } else if (card.getFigure() == Card::King && card.getColor() == Card::spade) {
+//            bonus += 5;
+//            moveBack = true;
+//        } else if (card.getFigure() == Card::Jack)
+//            jackWasThrown = true;
+//        else if (card.getFigure() == Card::Ace)
+//            aceWasThrown = true;
+//        else if (card.getFigure() == Card::Four) {
+//            turnsToLose++;
+//            fourWasThrown = true;
+//            waiting = false;
+//        }
+//
+//        cardOnTable = card;
+//
+//        if (bonus == Server::Ace)
+//            bonus = 0;
+//
+//        return card;
+//    }
 }
 
-void GameStatus::draw(Card card) {
+void GameState::draw(Card card) {
     cards.draw(card);
 }
 
-int GameStatus::getNumberOfCards() const {
-    return cards.numberOfCards;
+unsigned int GameState::getNumberOfCards() {
+    return cards.getNumberOfCards();
 }
 
-Card GameStatus::getCard(int i) {
-    return cards.checkOne(i);
+Card GameState::getCard(int i) {
+    return cards.getCard(i);
 }
 
-void GameStatus::resetChoosenCard() {
-    cards.resetChoosen();
+PlayerCards &GameState::getCards(){
+    return cards;
 }
+
+void GameState::setCards(const PlayerCards &playerCards) {
+    cards = playerCards;
+}
+
+const Card &GameState::getCardOnTable() const {
+    return cardOnTable;
+}
+
+void GameState::setCardOnTable(const Card &card) {
+    cardOnTable = card;
+}
+
+unsigned int *GameState::getNumberOfOtherCards() const {
+    return numberOfOtherCards;
+}
+
+void GameState::setNumberOfOtherCards(unsigned int *numberOfCards) {
+    for(int i = 0; i<3; i++)
+        numberOfOtherCards[i] = numberOfCards[i];
+}
+
+int GameState::getBonus() const {
+    return bonus;
+}
+
+void GameState::setBonus(int b) {
+    bonus = b;
+}
+
+int GameState::getTurnsToLose() const {
+    return turnsToLose;
+}
+
+void GameState::setTurnsToLose(int turns) {
+    turnsToLose = turns;
+}
+
+const Card &GameState::getRequest() const {
+    return request;
+}
+
+void GameState::setRequest(const Card &card) {
+    request = card;
+}
+
+const Card &GameState::getThrown() const {
+    return thrown;
+}
+
+void GameState::setThrown(const Card &card) {
+    thrown = card;
+}
+
+bool GameState::isTurn() const {
+    return turn;
+}
+
+void GameState::setTurn(bool doMove) {
+    turn = doMove;
+}
+
+int GameState::getPlace() const {
+    return place;
+}
+
+void GameState::setPlace(int p) {
+    place = p;
+}
+
+bool GameState::finished() {
+    return place != -1;
+}
+
+
+
