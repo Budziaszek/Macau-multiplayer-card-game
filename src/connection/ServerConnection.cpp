@@ -8,6 +8,15 @@ ServerConnection::ServerConnection() {
 
 }
 
+string ServerConnection::commandToString(Command command){
+    switch(command){
+        case move: return "move";
+        case cards: return "cards";
+        case update: return "update";
+        case victory: return "victory";
+    }
+}
+
 bool ServerConnection::connect(const string &ip, unsigned int serverPort) {
     port = serverPort;
     serverIp = sf::IpAddress(ip);
@@ -20,17 +29,6 @@ bool ServerConnection::connect(const string &ip, unsigned int serverPort) {
 
 void ServerConnection::disconnect() {
     server.disconnect();
-}
-
-void ServerConnection::checkTurn(GameState *gameStatus) {
-    if (checkSelector())
-        receive(gameStatus);
-//            if (gameStatus->isItsMyTurn() && !gameStatus->isWaitPermanently()) {
-//                packet.clear();
-//                packet << Server::updateStatus;
-//                server.send(packet);
-//                receiveSomething(gameStatus);
-//            }
 }
 
 void ServerConnection::actualizeCardOnTable(GameState *gameState) {
@@ -46,20 +44,22 @@ void ServerConnection::actualizeNumberOfOtherCards(GameState *gameState) {
     gameState->setNumberOfOtherCards(numbers);
 }
 
-void ServerConnection::actualizeBonus(GameState *gameState) {
-    int bonus, turnsToLose = 0;
-    unsigned int figureRequest = Card::noFigure;
-    unsigned int colorRequest = Card::noColor;
-    Card request = Card();
+void ServerConnection::actualize(GameState *gameState) {
+    int bonus, turnsToLose;
+    unsigned int colorRequest, figureRequest;
+
+    actualizeCardOnTable(gameState);
+
     packet >> bonus;
+    packet >> turnsToLose;
+
+    packet >> colorRequest;
+    packet >> figureRequest;
+
+    actualizeNumberOfOtherCards(gameState);
+
+    gameState->setRequest(Card(colorRequest, figureRequest));
     gameState->setBonus(bonus);
-    if (bonus == Server::Jack)
-        packet >> figureRequest;
-    else if (bonus == Server::Ace)
-        packet >> colorRequest;
-    else if (bonus == Server::Four)
-        packet >> turnsToLose;
-    gameState->setRequest(Card(figureRequest, colorRequest));
     gameState->setTurnsToLose(turnsToLose);
 }
 
@@ -79,22 +79,15 @@ void ServerConnection::receive(GameState *gameState) {
     if(server.receive(packet) == sf::Socket::Done) {
         int commandId;
         packet >> commandId;
-        cout << commandId << endl;
         switch (commandId) {
             case (ServerConnection::move):
-                gameState->setTurn(true);
-                break;
-            case (ServerConnection::cardOnTable):
-                actualizeCardOnTable(gameState);
+                setMove(gameState);
                 break;
             case (ServerConnection::cards):
                 drawCards(gameState);
                 break;
-            case (ServerConnection::opponents):
-                actualizeNumberOfOtherCards(gameState);
-                break;
-            case (ServerConnection::bonus):
-                actualizeBonus(gameState);
+            case (ServerConnection::update):
+                actualize(gameState);
                 break;
             case (ServerConnection::victory):
                 actualizeVictory(gameState);
@@ -104,6 +97,17 @@ void ServerConnection::receive(GameState *gameState) {
         }
     }
 }
+
+void ServerConnection::setMove(GameState *gameState){
+    if(gameState->isWaiting())
+    {
+        gameState->setWaiting(gameState->getWaiting() - 1);
+        skipTurn();
+    }
+    else
+        gameState->setTurn(true);
+}
+
 
 void ServerConnection::drawCards(GameState *gameState) {
     int numberOfCardsToTake;
@@ -116,44 +120,46 @@ void ServerConnection::drawCards(GameState *gameState) {
     }
 }
 
-void ServerConnection::discard(Card card) {
+void ServerConnection::discard(GameState *gameState) {
+    Card card = gameState->discard();
     packet.clear();
-    packet << Server::discardCard << card.getColor() << card.getFigure();
-    while (server.send(packet) != sf::Socket::Done);
+    packet << Server::discard;
+    packet << card.getColor() << card.getFigure();
+    server.send(packet);
+}
+
+void ServerConnection::finishTurn(GameState *gameState, bool forced) {
+    if (forced || gameState->canFinish()) {
+        if(!gameState->getThrown().isFullyDefined()){
+            gameState->setWaiting(gameState->getTurnsToLose());
+            gameState->setTurnsToLose(0);
+        }
+        packet.clear();
+        packet << Server::finish;
+        packet << gameState->getTurnsToLose();
+        packet << gameState->getRequest().getColor() << gameState->getRequest().getFigure();
+        server.send(packet);
+        gameState->reset();
+        gameState->getCards().resetCardSelection();
+    }
+}
+
+void ServerConnection::skipTurn() {
+    packet.clear();
+    packet << Server::skip;
+    server.send(packet);
+}
+
+void ServerConnection::drawRequest(GameState *gameState) {
+    if (gameState->canDraw()) {
+        packet.clear();
+        packet << Server::draw;
+        server.send(packet);
+        finishTurn(gameState, true);
+    }
 }
 
 
-void ServerConnection::finishTurn(GameState *gameStatus) {
-    packet.clear();
-    packet << Server::finishTurn;
-
-//    if (!gameStatus->isJackWasThrown() && gameStatus->getBonus() == Server::Jack)
-//        packet << Server::continueRequest;
-//    else if (gameStatus->isFourWasThrown())
-//        packet << Server::Four << gameStatus->getTurnsToLose();
-//    else
-//        packet << gameStatus->getBonus();
-//    if (gameStatus->isJackWasThrown())
-//        packet << gameStatus->getFigureRequest();
-//    if (gameStatus->isAceWasThrown() || gameStatus->getBonus() == Server::Ace)
-//        packet << gameStatus->getColorRequest();
-//    packet << gameStatus->isMoveBack();
-
-    while (server.send(packet) != sf::Socket::Done);
-
-}
-
-void ServerConnection::loseTurn() {
-    packet.clear();
-    packet << Server::missTurn;
-    while (server.send(packet) != sf::Socket::Done);
-}
-
-void ServerConnection::finish() {
-    packet.clear();
-    packet << Server::finishTurn << 0 << 0;
-    while (server.send(packet) != sf::Socket::Done);
-}
 
 
 

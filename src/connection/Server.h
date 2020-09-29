@@ -23,24 +23,14 @@ public:
 
     void start();
 
-    bool *playersWhoFinished;
-    int numberOfPlayersWhoFinished;
+    enum Command {
+        draw,
+        discard,
+        finish,
+        skip
+    };
 
-    enum commands {
-        finishTurn = 0,
-        drawCards,
-        discardCard,
-        updateStatus,
-        missTurn,
-        victory
-    };
-    enum bonusUnderZeroStatus {
-        wait = -5,
-        continueRequest = -4,
-        Four = -3,
-        Ace = -2,
-        Jack = -1
-    };
+    static string commandToString(Command command);
 
 private:
     Deck deck;
@@ -52,14 +42,14 @@ private:
     unsigned int maxNumberOfPlayers;
     unsigned int numberOfPlayers;
     unsigned int actualPlayer;
+    unsigned int playersWhoFinished;
     int *playersCardsCounts;
 
     int win;
     bool moveBack;
     int whoRequested;
     int turnsToLose;
-    int figureRequest;
-    int colorRequest;
+    Card request;
 
     unsigned int port;
     unsigned int maximumNumberOfPlayers;
@@ -78,31 +68,29 @@ private:
 
     bool checkContinueGame() const;
 
-    void sendCards(unsigned int clientId, PlayerCards playerCards);
-
     bool checkSelector(unsigned int clientId);
 
     void receiveAndResponse(unsigned int clientId);
-
-    void sendCardOnTable(unsigned int clientId);
 
     void nextPlayer();
 
     void previousPlayer();
 
-    void sendNumbersOfCards(unsigned int clientId);
-
-    void commandDrawCard(unsigned int clientId);
+    void commandDraw(unsigned int clientId, int b = 0);
 
     void commandDiscard(unsigned int clientId);
 
     void commandFinishTurn(unsigned int clientId);
 
-    void commandUpdateStatus(unsigned int clientId);
+    void sendTurnInformation();
 
-    void commandMissTurn(unsigned int clientId);
+    void sendUpdateToAll();
 
-    void commandVictory(unsigned int clientId);
+    void sendUpdate(unsigned int clientId);
+
+    void commandMissTurn();
+
+    void sendVictoryInformation(unsigned int clientId);
 };
 
 #endif //MACAU_SERVER_H

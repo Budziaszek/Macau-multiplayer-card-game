@@ -21,19 +21,19 @@ public:
 
     Card getCard(unsigned int i);
 
+    Card getSelectedCard();
+
     void changeCardSelection(unsigned int i);
 
     void resetCardSelection();
 
     void show();
 
-    void draw(Deck &deck);
+    void draw(Deck *deck);
 
     void draw(Card card);
 
     Card discard();
-
-    void discard(unsigned int i, Deck &deck);
 
 private:
     vector<Card> cards;

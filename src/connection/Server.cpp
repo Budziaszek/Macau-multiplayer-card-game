@@ -14,7 +14,7 @@ Server::Server(unsigned int portToListen, unsigned int places) {
     numberOfPlayers = 0;
     actualPlayer = -1;
     playersCardsCounts = new int[maxNumberOfPlayers];
-    for(int i = 0; i< maxNumberOfPlayers; i++)
+    for (int i = 0; i < maxNumberOfPlayers; i++)
         playersCardsCounts[i] = 0;
 
     whoRequested = -1;
@@ -22,15 +22,28 @@ Server::Server(unsigned int portToListen, unsigned int places) {
 
     maximumNumberOfPlayers = maxNumberOfPlayers;
     bonus = 0;
+    moveBack = false;
+    turnsToLose = 0;
+
+    playersWhoFinished = 0;
 
     win = 1;
-    playersWhoFinished = new bool[numberOfPlayers];
-    for (int i = 0; i < numberOfPlayers; i++)
-        playersWhoFinished[i] = false;
-    numberOfPlayersWhoFinished = 0;
 }
 
-void Server::start(){
+string Server::commandToString(Command command) {
+    switch (command) {
+        case finish:
+            return "finish";
+        case draw:
+            return "draw";
+        case discard:
+            return "discard";
+        case skip:
+            return "skip";
+    }
+}
+
+void Server::start() {
     startListening();
     waitForPlayers();
     prepareGame();
@@ -64,22 +77,16 @@ void Server::waitForPlayers() {
     }
 }
 
-void Server::prepareGame(){
-    cout << "Prepare game" << endl;
-    deck.shuffle();
-    PlayerCards *playerCards = deck.deal(numberOfPlayers, 5);
-    for(int i = 0; i< numberOfPlayers; i++)
-        playersCardsCounts[i] = 5;
+void Server::prepareGame() {
+    cout << "Prepare game." << endl;
+
     do {
         cardOnTable = deck.getCard();
     } while (cardOnTable.isSpecial());
 
-
-    for (int i = 0; i < numberOfPlayers; i++) {
-        sendCards(i, playerCards[i]);
-        sendCardOnTable(i);
-        sendNumbersOfCards(i);
-    }
+    for (int i = 0; i < numberOfPlayers; i++)
+        commandDraw(i, 5);
+    sendUpdateToAll();
 
     packet.clear();
     packet << ServerConnection::move;
@@ -89,45 +96,19 @@ void Server::prepareGame(){
         cout << "Start." << endl;
 }
 
-bool Server::checkContinueGame() const{
+bool Server::checkContinueGame() const {
     //TODO check if players are connected
-    if (numberOfPlayersWhoFinished == numberOfPlayers - 1)
-        return false;
-    else
-        return true;
+    return playersWhoFinished != numberOfPlayers;
 }
 
 void Server::game() {
-    while (checkContinueGame()){
-        if(checkSelector(actualPlayer))
+    while (checkContinueGame()) {
+        if (checkSelector(actualPlayer))
             receiveAndResponse(actualPlayer);
     }
     listener.close();
     cout << "Game finished." << endl;
     system("PAUSE");
-}
-
-void Server::sendCards(unsigned int clientId, PlayerCards playerCards) {
-    packet.clear();
-    packet << ServerConnection::cards << playerCards.getNumberOfCards();
-    for (int i = 0; i < playerCards.getNumberOfCards(); i++)
-        packet << playerCards.getCard(i).getColor() << playerCards.getCard(i).getFigure();
-    clients[clientId].send(packet);
-}
-
-void Server::sendCardOnTable(unsigned int clientId) {
-    packet.clear();
-    packet << ServerConnection::cardOnTable;
-    packet << cardOnTable.getColor() << cardOnTable.getFigure() << bonus;
-    clients[clientId].send(packet);
-}
-
-void Server::sendNumbersOfCards(unsigned int clientId) {
-    packet.clear();
-    packet << ServerConnection::opponents;
-    for (int i = 1; i < maxNumberOfPlayers; i++)
-        packet << playersCardsCounts[(clientId + i) % maxNumberOfPlayers];
-    clients[clientId].send(packet);
 }
 
 bool Server::checkSelector(unsigned int clientId) {
@@ -141,23 +122,22 @@ void Server::receiveAndResponse(unsigned int clientId) {
         int commandId;
         packet >> commandId;
         switch (commandId) {
-            case Server::drawCards:
-                commandDrawCard(clientId);
+            case Server::draw:
+                commandDraw(clientId);
+                sendUpdateToAll();
                 break;
-            case Server::discardCard:
+            case Server::discard:
                 commandDiscard(clientId);
+                sendUpdateToAll();
                 break;
-            case Server::finishTurn:
+            case Server::finish:
                 commandFinishTurn(clientId);
+                sendUpdateToAll();
+                sendTurnInformation();
                 break;
-            case Server::updateStatus:
-                commandUpdateStatus(clientId);
-                break;
-            case Server::missTurn:
-                commandMissTurn(clientId);
-                break;
-            case Server::victory:
-                commandVictory(clientId);
+            case Server::skip:
+                commandMissTurn();
+                sendTurnInformation();
                 break;
             default:
                 return;
@@ -170,8 +150,6 @@ void Server::nextPlayer() {
         actualPlayer = 0;
     else
         actualPlayer++;
-    if (playersWhoFinished[actualPlayer] == true)
-        nextPlayer();
 }
 
 void Server::previousPlayer() {
@@ -179,26 +157,24 @@ void Server::previousPlayer() {
         actualPlayer = numberOfPlayers - 1;
     else
         actualPlayer--;
-    if (playersWhoFinished[actualPlayer] == true)
-        previousPlayer();
 }
 
-void Server::commandDrawCard(unsigned int clientId) {
+void Server::commandDraw(unsigned int clientId, int b) {
     packet.clear();
+
+    if (b != 0)
+        bonus = b;
+    else if (bonus == 0)
+        bonus = 1;
     packet << ServerConnection::cards;
-    packet << 1;
-
-    Card card = deck.getCard();
-    packet << card.getColor() << card.getFigure();
-    playersCardsCounts[clientId] += 1;
-
-    while (clients[clientId].send(packet) != sf::Socket::Done);
-
-    for (int i = 0; i < numberOfPlayers; i++) {
-        sendCardOnTable(i);
-        sendNumbersOfCards(i);
+    packet << bonus;
+    for (int i = 0; i < bonus; i++) {
+        Card card = deck.getCard();
+        packet << card.getColor() << card.getFigure();
+        playersCardsCounts[clientId] += 1;
     }
-
+    clients[clientId].send(packet);
+    bonus = 0;
 }
 
 void Server::commandDiscard(unsigned int clientId) {
@@ -207,88 +183,94 @@ void Server::commandDiscard(unsigned int clientId) {
     cardOnTable = Card(color, figure);
     playersCardsCounts[clientId] -= 1;
 
-    for (int i = 0; i < numberOfPlayers; i++) {
-        sendCardOnTable(i);
-        sendNumbersOfCards(i);
+    if (cardOnTable.isBrave())
+        bonus += (int) cardOnTable.getPower();
+    else if (cardOnTable.getFigure() == Card::four)
+        turnsToLose++;
+    if (request.getColor() != Card::noColor)
+        if (cardOnTable.getColor() == request.getColor())
+            request.setColor(Card::noColor);
+
+    if (playersCardsCounts[clientId] == 0) {
+        playersWhoFinished++;
+        sendVictoryInformation(clientId);
+    }
+    if (playersWhoFinished == numberOfPlayers - 1) {
+        playersWhoFinished++;
+        nextPlayer();
+        sendVictoryInformation(actualPlayer);
+    }
+}
+
+void Server::sendTurnInformation() {
+    packet.clear();
+    packet << ServerConnection::move;
+    clients[actualPlayer].send(packet);
+
+    if (request.getFigure() != Card::noFigure) {
+        if (whoRequested == actualPlayer) {
+            whoRequested = -1;
+            request = Card();
+            sendUpdateToAll();
+        }
     }
 }
 
 void Server::commandFinishTurn(unsigned int clientId) {
-    packet >> bonus;
-    if (bonus == Server::Jack) {
-        packet >> figureRequest;
-        whoRequested = clientId;
-    } else if (bonus == Server::Ace) {
-        packet >> colorRequest;
-    } else if (bonus == Server::Four) {
-        packet >> turnsToLose;
-    } else if (bonus == Server::continueRequest) {
-        if (whoRequested != actualPlayer)
-            bonus = Server::Jack;
-        if (whoRequested == actualPlayer) {
-            bonus = 0;
-            whoRequested = -1;
-        }
+    int turns, figureRequest, colorRequest;
+    packet >> turns >> colorRequest >> figureRequest;
+    request = Card(colorRequest, figureRequest);
+    turnsToLose = turns;
+
+    if (request.getFigure() != Card::noFigure) {
+        if (whoRequested == -1)
+            whoRequested = (int) clientId;
     }
-    moveBack = false;
-    packet >> moveBack;
-    if (moveBack)
+
+    if (cardOnTable.getFigure() == Card::king && cardOnTable.getColor() == Card::spade) {
         previousPlayer();
-    else
+        moveBack = true;
+    } else {
         nextPlayer();
-
-    packet.clear();
-    packet << ServerConnection::move;
-    while (clients[actualPlayer].send(packet) != sf::Socket::Done);
-    packet.clear();
-    packet << -1;
-    while (clients[clientId].send(packet) != sf::Socket::Done);
+        moveBack = false;
+    }
 }
 
-void Server::commandUpdateStatus(unsigned int clientId) {
-    packet.clear();
-    packet << ServerConnection::bonus << bonus;
-    if (bonus == Server::Jack)
-        packet << figureRequest;
-    else if (bonus == Server::Four)
-        packet << turnsToLose;
-    else if (bonus == Server::Ace)
-        packet << colorRequest;
-    packet << moveBack;
-    while (clients[actualPlayer].send(packet) != sf::Socket::Done);
+void Server::sendUpdateToAll() {
+    for (int i = 0; i < numberOfPlayers; i++)
+        sendUpdate(i);
 }
 
-void Server::commandMissTurn(unsigned int clientId) {
-    if (moveBack)
+void Server::sendUpdate(unsigned int clientId) {
+    packet.clear();
+
+    packet << ServerConnection::update;
+
+    packet << cardOnTable.getColor() << cardOnTable.getFigure();
+
+    packet << bonus;
+    packet << turnsToLose;
+
+    packet << request.getColor() << request.getFigure();
+
+    for (int i = 1; i < maxNumberOfPlayers; i++)
+        packet << playersCardsCounts[(clientId + i) % maxNumberOfPlayers];
+
+    clients[clientId].send(packet);
+}
+
+void Server::commandMissTurn() {
+    if (!moveBack)
+        nextPlayer();
+    else
         previousPlayer();
-    else
-        nextPlayer();
-
-    packet.clear();
-    packet << ServerConnection::move;
-    while (clients[actualPlayer].send(packet) != sf::Socket::Done);
-    packet.clear();
-    packet << -1;
-    while (clients[clientId].send(packet) != sf::Socket::Done);
 }
 
-void Server::commandVictory(unsigned int clientId) {
+void Server::sendVictoryInformation(unsigned int clientId) {
     packet.clear();
-    packet << ServerConnection::victory << win;
+
+    packet << ServerConnection::victory;
+    packet << win;
+    clients[clientId].send(packet);
     win++;
-    while (clients[actualPlayer].send(packet) != sf::Socket::Done);
-    playersWhoFinished[actualPlayer] = true;
-    numberOfPlayersWhoFinished++;
-
-    if (numberOfPlayersWhoFinished == numberOfPlayers - 1) {
-        packet.clear();
-        packet << ServerConnection::victory << win;
-        win++;
-        for (int i = 0; i < numberOfPlayers; i++)
-            if (playersWhoFinished[i] != true) {
-                while (clients[i].send(packet) != sf::Socket::Done);
-                break;
-            }
-    }
-
 }

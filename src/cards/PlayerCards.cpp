@@ -43,8 +43,8 @@ void PlayerCards::show() {
         cout << card.getColor() << " " << card.getFigure() << endl;
 }
 
-void PlayerCards::draw(Deck &deck) {
-    cards.push_back(deck.getCard());
+void PlayerCards::draw(Deck* deck) {
+    cards.push_back(deck->getCard());
 }
 
 void PlayerCards::draw(Card card) {
@@ -54,16 +54,17 @@ void PlayerCards::draw(Card card) {
 Card PlayerCards::discard() {
     Card card = Card();
     if (selectedCard != -1) {
-        cards[selectedCard].setSelected(false);
         card = cards[selectedCard];
+        cards[selectedCard].setSelected(false);
         cards.erase(cards.begin() + selectedCard);
+        selectedCard = -1;
     }
     return card;
 }
 
-void PlayerCards::discard(unsigned int i, Deck &deck) {
-    deck.addCard(cards[i]);
-    cards[i].setSelected(false);
-    cards.erase(cards.begin() + selectedCard);
+Card PlayerCards::getSelectedCard() {
+    if(selectedCard == -1)
+        return Card();
+    return cards[selectedCard];
 }
 

@@ -29,7 +29,6 @@ void GameState::reset() {
     turnsToLose = 0;
     request = Card();
     thrown = Card();
-
     turn = false;
 }
 
@@ -41,40 +40,6 @@ bool GameState::somethingWasThrown() {
     return thrown.getFigure() != Card::noFigure && thrown.getColor() != Card::noColor;
 }
 
-Card GameState::discardMove() {
-    Card card = cards.discard();
-    thrown = card;
-    cardOnTable = card;
-    return card;
-//    if (card.getFigure() != Card::noFigure && card.getColor() != Card::noColor) {
-//        if (bonus < 0 && bonus != Server::continueRequest && bonus != Server::Jack)
-//            bonus = 0;
-//        if (card.getFigure() == 2 || card.getFigure() == 3)
-//            bonus += card.getFigure();
-//        else if (card.getFigure() == Card::King && card.getColor() == Card::heart) {
-//            bonus += 5;
-//            moveBack = false;
-//        } else if (card.getFigure() == Card::King && card.getColor() == Card::spade) {
-//            bonus += 5;
-//            moveBack = true;
-//        } else if (card.getFigure() == Card::Jack)
-//            jackWasThrown = true;
-//        else if (card.getFigure() == Card::Ace)
-//            aceWasThrown = true;
-//        else if (card.getFigure() == Card::Four) {
-//            turnsToLose++;
-//            fourWasThrown = true;
-//            waiting = false;
-//        }
-//
-//        cardOnTable = card;
-//
-//        if (bonus == Server::Ace)
-//            bonus = 0;
-//
-//        return card;
-//    }
-}
 
 void GameState::draw(Card card) {
     cards.draw(card);
@@ -121,14 +86,6 @@ void GameState::setBonus(int b) {
     bonus = b;
 }
 
-int GameState::getTurnsToLose() const {
-    return turnsToLose;
-}
-
-void GameState::setTurnsToLose(int turns) {
-    turnsToLose = turns;
-}
-
 const Card &GameState::getRequest() const {
     return request;
 }
@@ -137,7 +94,7 @@ void GameState::setRequest(const Card &card) {
     request = card;
 }
 
-const Card &GameState::getThrown() const {
+Card GameState::getThrown(){
     return thrown;
 }
 
@@ -161,8 +118,115 @@ void GameState::setPlace(int p) {
     place = p;
 }
 
-bool GameState::finished() {
+bool GameState::finished() const {
     return place != -1;
+}
+
+Card GameState::getSelectedCard() {
+    return cards.getSelectedCard();
+}
+
+Card GameState::discard() {
+    thrown = getSelectedCard();
+    return cards.discard();
+}
+
+bool GameState::canDraw() {
+    if (turnsToLose > 0)
+        return false;
+    if (thrown.isFullyDefined())
+        return false;
+    if (request.getFigure() == Card::four)
+        return false;
+    return true;
+}
+
+bool GameState::canFinish() {
+    return thrown.isFullyDefined() || turnsToLose > 0;
+}
+
+bool GameState::canDiscard(Card card){
+    if (card.isFullyDefined()) {
+        if (thrown.isFullyDefined()) {
+            if (thrown.getFigure() == card.getFigure())
+                return true;
+            return false;
+        }
+        if (isThereRequest()){
+            if(cardMatchesRequest(card))
+                return true;
+            return false;
+        }
+        if (isBraveCardRequired()) {
+            if (card.isBrave() && cardMatchesCardOnTable(card))
+                return true;
+            return false;
+        }
+        if (isFourRequired()) {
+            if (card.getFigure() == Card::four)
+                return true;
+            return false;
+        }
+        if (cardMatchesCardOnTable(card)) {
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+bool GameState::isThereRequest() {
+    return isThereColorRequest() || isThereFigureRequest();
+}
+
+bool GameState::isThereFigureRequest() {
+    return request.getFigure() != Card::noFigure;
+}
+
+bool GameState::isThereColorRequest() {
+    return request.getColor() != Card::noColor;
+}
+
+bool GameState::cardMatchesRequest(Card card) {
+    if(!isThereRequest())
+        return true;
+    if(request.getFigure() == card.getFigure())
+        return true;
+    if(request.getColor() == card.getColor())
+        return true;
+    return false;
+}
+
+bool GameState::cardMatchesCardOnTable(Card card) {
+    if(cardOnTable.getFigure() == card.getFigure())
+        return true;
+    if(cardOnTable.getColor() == card.getColor())
+        return true;
+    return false;
+}
+
+bool GameState::isBraveCardRequired() const {
+    return bonus > 0;
+}
+
+bool GameState::isFourRequired() {
+    return turnsToLose > 0;
+}
+
+int GameState::getTurnsToLose() const {
+    return turnsToLose;
+}
+
+void GameState::setTurnsToLose(int turns) {
+    GameState::turnsToLose = turns;
+}
+
+int GameState::getWaiting() const {
+    return waiting || finished();
+}
+
+void GameState::setWaiting(int w) {
+    GameState::waiting = w;
 }
 
 

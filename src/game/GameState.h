@@ -20,13 +20,15 @@ public:
 
     bool somethingWasThrown();
 
-    Card discardMove();
-
     void draw(Card card);
 
     unsigned int getNumberOfCards();
 
     Card getCard(int i);
+
+    Card getSelectedCard();
+
+    Card discard();
 
     PlayerCards &getCards();
 
@@ -44,15 +46,11 @@ public:
 
     void setBonus(int b);
 
-    int getTurnsToLose() const;
-
-    void setTurnsToLose(int turns);
-
     const Card &getRequest() const;
 
     void setRequest(const Card &card);
 
-    const Card &getThrown() const;
+    Card getThrown();
 
     void setThrown(const Card &card);
 
@@ -64,7 +62,35 @@ public:
 
     void setPlace(int p);
 
-    bool finished();
+    bool finished() const;
+
+    bool canDraw();
+
+    bool isThereFigureRequest();
+
+    bool isThereColorRequest();
+
+    bool isThereRequest();
+
+    bool cardMatchesRequest(Card card);
+
+    bool cardMatchesCardOnTable(Card card);
+
+    bool canFinish();
+
+    bool canDiscard(Card card);
+
+    bool isBraveCardRequired() const;
+
+    bool isFourRequired();
+
+    int getTurnsToLose() const;
+
+    void setTurnsToLose(int turns);
+
+    int getWaiting() const;
+
+    void setWaiting(int w);
 
 private:
     PlayerCards cards;
@@ -72,9 +98,11 @@ private:
     unsigned int *numberOfOtherCards;
 
     int bonus;
-    int turnsToLose;
     Card request;
     Card thrown;
+    int turnsToLose;
+
+private:
     int waiting;
 
     bool turn;

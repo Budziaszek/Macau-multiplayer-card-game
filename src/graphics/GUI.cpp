@@ -8,16 +8,15 @@ GUI::GUI() {
     width = 600;
     height = 600;
     window = nullptr;
-    event = sf::Event();
 
     backgroundColor = sf::Color(0, 102, 0, 255);
 
     if (!font.loadFromFile("../resources/font.ttf")) {
-        error("Could not find required resource: font.ttf");
+        windowInformation("ERROR", "Could not find required resource: font.ttf");
         window->close();
     }
     if (!images.load("../resources/cards.png", sf::Vector2u(71, 96))) {
-        error("Could not find required resource: cards.png");
+        windowInformation("ERROR", "Could not find required resource: cards.png");
         window->close();
     }
 
@@ -49,13 +48,42 @@ GUI::GUI() {
     author.setPosition(sf::Vector2f(width - 5, height - 5));
     author.setFillColor(sf::Color(96, 96, 96));
     author.setOutlineColor(sf::Color(32, 32, 32));
+
+    jackOptions = new int[7]{Card::five, Card::six, Card::seven, Card::eight, Card::nine, Card::ten, Card::queen};
+    aceOptions = new int[4]{Card::spade, Card::club, Card::heart, Card::diamond};
+
+    selectRequest = sf::Text("Select request", font, 25);
+    centerText(&selectRequest, 400, 200);
+    selectRequest.setFillColor(sf::Color::White);
+    selectRequest.move(sf::Vector2f(0, -80));
+
+    noRequest = Button("No request", font, 20);
+    centerText(noRequest.getText(), 400, 200);
+    noRequest.getText()->move(sf::Vector2f(70, 70));
+
+    requestInformation = sf::Text("Request: ", font, 15);
+    requestInformation.setFillColor(sf::Color::White);
+    requestInformation.setPosition(sf::Vector2f((float) width / 2 - 50, (float) height / 2 - 130));
+
+    cardsToDraw = sf::Text("Cards to draw: ", font, 15);
+    cardsToDraw.setFillColor(sf::Color::White);
+    cardsToDraw.setPosition(sf::Vector2f((float) width / 2 - 50, (float) height / 2 - 110));
+
+    turnsToLose = sf::Text("Turns to lose: ", font, 15);
+    turnsToLose.setFillColor(sf::Color::White);
+    turnsToLose.setPosition(sf::Vector2f((float) width / 2 - 50, (float) height / 2 - 90));
 }
+
 
 bool GUI::welcomeScreen() {
     window = new sf::RenderWindow(sf::VideoMode(width, height), "Macau", sf::Style::Close);
 
     sf::Vector2f mousePosition = sf::Vector2f();
     while (window->isOpen()) {
+        if(gameState.finished()) {
+            windowInformation("INFORMATION", "Game finished on place " + to_string(gameState.getPlace()));
+            gameState.setPlace(-1);
+        }
         window->clear(backgroundColor);
         window->draw(playButton);
         window->draw(serverButton);
@@ -66,7 +94,7 @@ bool GUI::welcomeScreen() {
                 window->close();
                 return false;
             }
-            mousePosition = sf::Vector2f(sf::Mouse::getPosition(*window));
+            mousePosition = getMousePosition(window);
             if (playButton.checkMouseEvent(mousePosition, event))
                 playButtonClicked();
             else if (serverButton.checkMouseEvent(mousePosition, event)) {
@@ -79,10 +107,10 @@ bool GUI::welcomeScreen() {
 }
 
 void GUI::playButtonClicked() {
-    //FreeConsole();
+    FreeConsole();
     while (!serverConnection.connect(enterInformation("Enter server ip: "))) {
         if (window->isOpen())
-            error("Could not connect with server! Try again.");
+            windowInformation("ERROR", "Could not connect with server! Try again.");
         else
             return;
     }
@@ -111,16 +139,23 @@ void GUI::waitForPlayers() {
 
 void GUI::checkGameButtons(sf::Vector2f mousePosition) {
     if (discardButton.checkMouseEvent(mousePosition, event)) {
-
+        if (gameState.canDiscard(gameState.getSelectedCard()))
+            serverConnection.discard(&gameState);
     } else if (drawButton.checkMouseEvent(mousePosition, event)) {
-
+        if (gameState.canDraw())
+            serverConnection.drawRequest(&gameState);
     } else if (finishButton.checkMouseEvent(mousePosition, event)) {
-
+        if (gameState.canFinish()) {
+            if (gameState.getCardOnTable().getFigure() == Card::jack)
+                realizeRequest("Jack (figure request)", true, jackOptions, 7);
+            if (gameState.getCardOnTable().getFigure() == Card::ace)
+                realizeRequest("Ace (color request)", false, aceOptions, 4);
+            serverConnection.finishTurn(&gameState);
+        }
     }
 }
 
 void GUI::checkCardSelectionChange(sf::Vector2f mousePosition) {
-    sf::Vector2f centerCardPosition = sf::Vector2f(images.getXPosition(0), images.getYPosition(0));
     float selectedShift = 50;
     float step = checkCardsInterval(gameState.getNumberOfCards());
 
@@ -128,7 +163,12 @@ void GUI::checkCardSelectionChange(sf::Vector2f mousePosition) {
     int c = (int) gameState.getNumberOfCards() / 2;
 
     float minX = (float) images.getXPosition(0) - (float) c * step;
-    float maxX = (float) images.getXPosition(0) + (float) (n - c  - 1) * step + images.getSize().x;
+    float maxX = (float) images.getXPosition(0) + (float) (n - c - 1) * step + images.getSize().x;
+
+    if(gameState.getNumberOfCards() % 2 == 0) {
+        minX += (float) images.getSize().x / 2;
+        maxX += (float) images.getSize().x / 2;
+    }
 
     float minY = images.getYPosition(0);
     float maxY = images.getYPosition(0) + images.getSize().y;
@@ -137,12 +177,13 @@ void GUI::checkCardSelectionChange(sf::Vector2f mousePosition) {
         int cardNumber = floor((mousePosition.x - minX) / step);
         cardNumber = cardNumber < n ? cardNumber : n - 1;
         float shift = 0;
-        if(gameState.getCard(cardNumber).isSelected())
+        if (gameState.getCard(cardNumber).isSelected())
             shift = selectedShift;
-        if (mousePosition.y >= minY - shift  && mousePosition.y <= maxY - shift )
+        if (mousePosition.y >= minY - shift && mousePosition.y <= maxY - shift)
             gameState.getCards().changeCardSelection(cardNumber);
     }
 }
+
 
 void GUI::play() {
     sf::Vector2f mousePosition = sf::Vector2f();
@@ -155,12 +196,12 @@ void GUI::play() {
         if (gameState.isTurn())
             showGameButtons();
         showOtherPlayersCards();
+        updateAndDisplayInformation();
         window->display();
-
         while (window->pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window->close();
-            mousePosition = sf::Vector2f(sf::Mouse::getPosition(*window));
+            mousePosition = getMousePosition(window);
             if (gameState.isTurn()) {
                 checkGameButtons(mousePosition);
                 if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Button::Left)
@@ -178,6 +219,8 @@ void GUI::showCards() {
     float selectedShift = 50;
     float step = checkCardsInterval(gameState.getNumberOfCards());
 
+    if(gameState.getNumberOfCards() % 2 == 0)
+        centerCardPosition.x += (float) images.getSize().x / 2;
     int c = (int) gameState.getNumberOfCards() / 2;
     for (int i = 0; i < gameState.getNumberOfCards(); i++) {
         images.setCard(gameState.getCard(i));
@@ -214,7 +257,7 @@ void GUI::showOtherPlayersCards() {
     }
 }
 
-void GUI::showStatement() {
+void GUI::showInformation() {
 }
 
 void GUI::showGameButtons() {
@@ -225,19 +268,15 @@ void GUI::showGameButtons() {
     window->draw(finishButton);
 }
 
-void GUI::finishTurn() {
-
-}
-
 void GUI::centerText(sf::Text *text, float windowWidth, float windowHeight) {
     sf::FloatRect textRect = text->getLocalBounds();
     text->setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
     text->setPosition(sf::Vector2f(windowWidth / 2.0f, windowHeight / 2.0f));
 }
 
-void GUI::error(const string &info) {
+void GUI::windowInformation(const string& title, const string &info) {
     auto *errorWindow = new sf::RenderWindow(sf::VideoMode(400, 200),
-                                             "ERROR", sf::Style::Close);
+                                             title, sf::Style::Close);
     sf::Text text = sf::Text(info, font, 20);
     centerText(&text, 400, 200);
     text.setFillColor(sf::Color::Red);
@@ -252,19 +291,63 @@ void GUI::error(const string &info) {
     }
 }
 
-bool GUI::realizeJackMove() {
-
+void GUI::initializeRequestButtons(Button tab[], bool figure, int options[], int size) {
+    for (int i = 0; i < size; i++) {
+        if (figure)
+            tab[i] = Button(Card::figureToString(options[i]), font, 20);
+        else
+            tab[i] = Button(Card::colorToString(options[i]), font, 20);
+        centerText(tab[i].getText(), 400, 20);
+        tab[i].move(-60, 45 + (float) i * 20);
+    }
 }
 
-bool GUI::realizeAceMove() {
+bool GUI::realizeRequest(const string &request, bool figure, int options[], int size) {
+    auto *miniWindow = new sf::RenderWindow(sf::VideoMode(400, 200), request, sf::Style::Close);
 
+    Button tab[size];
+    initializeRequestButtons(tab, figure, options, size);
+
+    while (miniWindow->isOpen()) {
+        while (miniWindow->pollEvent(event)) {
+            miniWindow->clear(backgroundColor);
+            miniWindow->draw(selectRequest);
+            for (int i = 0; i < size; i++)
+                miniWindow->draw(tab[i]);
+            miniWindow->draw(noRequest);
+            miniWindow->display();
+
+            if (event.type == sf::Event::Closed) {
+                miniWindow->close();
+                return false;
+            }
+            sf::Vector2f mousePosition = getMousePosition(miniWindow);
+            if (noRequest.checkMouseEvent(mousePosition, event)) {
+                miniWindow->close();
+                return false;
+            }
+            for (int i = 0; i < size; i++)
+                if (tab[i].checkMouseEvent(mousePosition, event)) {
+                    if (figure)
+                        gameState.setRequest(Card(Card::noColor, options[i]));
+                    else
+                        gameState.setRequest(Card(options[i], Card::noFigure));
+                    miniWindow->close();
+                    return true;
+                }
+        }
+    }
+    return false;
 }
 
 float GUI::checkCardsInterval(unsigned int numberOfCards) {
-    return floor(250.f / (float) numberOfCards);
+    float min_step = 50;
+    float step = floor(250.f / (float) numberOfCards);
+    return step > min_step ? min_step : step;
 }
 
 string GUI::enterInformation(string informationName, bool hidden) {
+    return "192.168.1.11";
     string information;
     sf::Text text;
     text.setFont(font);
@@ -299,5 +382,39 @@ string GUI::enterInformation(string informationName, bool hidden) {
         }
     }
     return "";
+}
+
+sf::Vector2f GUI::getMousePosition(sf::RenderWindow *w) {
+    // This function was created because of some problems with getPosition(relativeTo).
+    // Normally code below can be used instead:
+    // mousePosiion = sf::Vector2f(sf::Mouse::getPosition(*window));
+
+    return sf::Vector2f(sf::Mouse::getPosition().x - w->getPosition().x,
+                        sf::Mouse::getPosition().y - w->getPosition().y - ::GetSystemMetrics(SM_CYCAPTION));
+
+}
+
+void GUI::updateAndDisplayInformation() {
+    if (gameState.isThereFigureRequest())
+        requestInformation.setString("Request: " + Card::figureToString((int) gameState.getRequest().getFigure()));
+    else if (gameState.isThereColorRequest())
+        requestInformation.setString("Request: " + Card::colorToString((int) gameState.getRequest().getColor()));
+    else
+        requestInformation.setString(string("Request: ") + string("-"));
+
+    cardsToDraw.setString("Cards to draw: "
+                          + (gameState.getBonus() > 0 ? to_string(gameState.getBonus()) : to_string(1)));
+
+
+    if (!gameState.isWaiting())
+        turnsToLose.setString("Turns to lose: "
+                              + (gameState.isFourRequired() ? to_string(gameState.getTurnsToLose()) : to_string(0)));
+    else
+        turnsToLose.setString("Turns to lose (waiting): " + to_string(gameState.getWaiting()));
+
+
+    window->draw(requestInformation);
+    window->draw(cardsToDraw);
+    window->draw(turnsToLose);
 }
 

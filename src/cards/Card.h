@@ -5,33 +5,42 @@
 #ifndef MACAU_CARD_H
 #define MACAU_CARD_H
 
+#include <string>
+
+using namespace std;
+
 class Card {
 public:
-    enum colors {
+    enum Color {
         noColor = 0,
         club = 1,
         heart,
         spade,
         diamond
     };
-    enum figures {
+
+    enum Figure {
         noFigure = 0,
-        Ace = 1,
-        Two,
-        Three,
-        Four,
-        Five,
-        Six,
-        Seven,
-        Eight,
-        Nine,
-        Ten,
-        Jack,
-        Queen,
-        King,
+        ace = 1,
+        two,
+        three,
+        four,
+        five,
+        six,
+        seven,
+        eight,
+        nine,
+        ten,
+        jack,
+        queen,
+        king,
     };
 
-    explicit Card(unsigned int colour = noColor, unsigned int figure = noFigure);
+    static string colorToString(int color);
+
+    static string figureToString(int figure);
+
+    explicit Card(unsigned int color = noColor, unsigned int figure = noFigure);
 
     unsigned int getColor() const;
 
@@ -39,26 +48,26 @@ public:
 
     bool isSpecial() const;
 
+    bool isBrave() const;
+
+    unsigned int getPower() const;
+
     bool isSelected() const;
 
     void setSelected(bool s);
 
-    void changeSelection();
+    void setColor(unsigned int c);
+
+    void setFigure(unsigned int f);
+
+    bool isFullyDefined();
 
 private:
     unsigned int color;
     unsigned int figure;
     bool selected;
 
-private:
-
-    static unsigned int check(unsigned int value, unsigned int min, unsigned int max) {
-        if (value > max)
-            return max;
-        if (value < min)
-            return min;
-        return value;
-    }
+    static unsigned int check(unsigned int value, unsigned int min, unsigned int max);
 };
 
 #endif //MACAU_CARD_H

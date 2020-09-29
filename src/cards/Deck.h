@@ -22,8 +22,6 @@ public:
 
     void show();
 
-    void shuffle(unsigned int times = 100);
-
     PlayerCards *deal(unsigned int numberOfPlayers, unsigned int numberOfCardsForEach);
 
     Card getCard();
@@ -33,6 +31,7 @@ public:
 private:
     vector<Card> cards;
     vector<Card> usedCards;
+    unsigned seed;
 };
 
 #endif //MACAU_DECK_H

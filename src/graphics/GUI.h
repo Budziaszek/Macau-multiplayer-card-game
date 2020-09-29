@@ -42,6 +42,10 @@ private:
     Button discardButton;
     sf::Text author;
 
+    sf::Text requestInformation;
+    sf::Text cardsToDraw;
+    sf::Text turnsToLose;
+
     CardsImages images;
 
     sf::Font font;
@@ -50,7 +54,11 @@ private:
     ServerConnection serverConnection;
     GameState gameState;
 
-    void finishTurn();
+    int *jackOptions;
+    int *aceOptions;
+
+    sf::Text selectRequest;
+    Button noRequest;
 
     void showCards();
 
@@ -58,7 +66,7 @@ private:
 
     void showCardOnTable();
 
-    void showStatement();
+    void showInformation();
 
     void showGameButtons();
 
@@ -68,9 +76,9 @@ private:
 
     static float checkCardsInterval(unsigned int numberOfCards);
 
-    bool realizeJackMove();
+    void initializeRequestButtons(Button tab[], bool figure, int options[], int size);
 
-    bool realizeAceMove();
+    bool realizeRequest(const string &request, bool figure, int options[], int size);
 
     string enterInformation(string informationName, bool hidden = false);
 
@@ -78,9 +86,13 @@ private:
 
     void waitForPlayers();
 
-    void error(const string &info);
+    void windowInformation(const string& title, const string &info);
 
     static void centerText(sf::Text *text, float windowWidth, float windowHeight);
+
+    sf::Vector2f getMousePosition(sf::RenderWindow *w);
+
+    void updateAndDisplayInformation();
 };
 
 

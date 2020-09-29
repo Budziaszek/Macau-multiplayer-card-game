@@ -17,14 +17,14 @@ class ServerConnection {
 public:
     ServerConnection();
 
-    enum commands {
-        move = 0,
+    enum Command {
+        move,
         cards,
-        cardOnTable,
-        opponents,
-        bonus,
+        update,
         victory
     };
+
+    static string commandToString(Command command);
 
     bool connect(const string &ip, unsigned int serverPort = 22);
 
@@ -34,6 +34,14 @@ public:
 
     void receive(GameState *gameState);
 
+    void discard(GameState *gameState);
+
+    void finishTurn(GameState *gameState, bool forced = false);
+
+    void drawRequest(GameState *gameState);
+
+    void setMove(GameState *gameState);
+
 private:
     unsigned int port;
     sf::IpAddress serverIp;
@@ -41,25 +49,17 @@ private:
     sf::SocketSelector selector;
     sf::Packet packet;
 
-    void checkTurn(GameState *gameState);
-
     void actualizeCardOnTable(GameState *gameState);
-
-    void drawCards(GameState *gameState);
 
     void actualizeNumberOfOtherCards(GameState *gameState);
 
-    void actualizeBonus(GameState *gameState);
+    void actualize(GameState *gameState);
 
     void actualizeVictory(GameState *gameState);
 
-    void discard(Card card);
+    void drawCards(GameState *gameState);
 
-    void finishTurn(GameState *gameState);
-
-    void loseTurn();
-
-    void finish();
+    void skipTurn();
 };
 
 #endif //MACAU_SERVERCONNECTION_H
