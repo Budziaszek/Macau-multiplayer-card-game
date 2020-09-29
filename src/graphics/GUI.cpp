@@ -347,7 +347,6 @@ float GUI::checkCardsInterval(unsigned int numberOfCards) {
 }
 
 string GUI::enterInformation(string informationName, bool hidden) {
-    return "192.168.1.11";
     string information;
     sf::Text text;
     text.setFont(font);
