@@ -196,6 +196,8 @@ void Server::sendTurnInformation() {
 void Server::commandFinishTurn(unsigned int clientId) {
     int turns, figureRequest, colorRequest;
     packet >> turns >> colorRequest >> figureRequest;
+    if(request.getFigure() != figureRequest)
+        whoRequested = -1;
     request = Card(colorRequest, figureRequest);
     turnsToLose = turns;
 

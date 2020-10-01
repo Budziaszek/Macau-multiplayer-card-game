@@ -155,6 +155,10 @@ bool GameState::canDiscard(Card card){
         if (isThereRequest()){
             if(cardMatchesRequest(card))
                 return true;
+            else if(isThereFigureRequest() && card.getFigure() == Card::jack)
+                return true;
+            else if(isThereColorRequest() && card.getFigure() == Card::ace)
+                return true;
             return false;
         }
         if (isBraveCardRequired()) {
