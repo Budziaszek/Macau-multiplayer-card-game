@@ -226,7 +226,9 @@ void GameState::setTurnsToLose(int turns) {
 }
 
 int GameState::getWaiting() const {
-    return waiting || finished();
+    if(finished())
+        return 1;
+    return waiting;
 }
 
 void GameState::setWaiting(int w) {

@@ -79,6 +79,7 @@ void ServerConnection::receive(GameState *gameState) {
     if(server.receive(packet) == sf::Socket::Done) {
         int commandId;
         packet >> commandId;
+        cout << commandToString(Command(commandId)) << endl;
         switch (commandId) {
             case (ServerConnection::move):
                 setMove(gameState);

@@ -146,17 +146,21 @@ void Server::receiveAndResponse(unsigned int clientId) {
 }
 
 void Server::nextPlayer() {
-    if (actualPlayer == numberOfPlayers - 1)
+    if (actualPlayer == maxNumberOfPlayers - 1)
         actualPlayer = 0;
     else
         actualPlayer++;
+    if (playersCardsCounts[actualPlayer] == 0)
+        nextPlayer();
 }
 
 void Server::previousPlayer() {
     if (actualPlayer == 0)
-        actualPlayer = numberOfPlayers - 1;
+        actualPlayer = maxNumberOfPlayers - 1;
     else
         actualPlayer--;
+    if (playersCardsCounts[actualPlayer] == 0)
+        previousPlayer();
 }
 
 void Server::commandDraw(unsigned int clientId, int b) {
@@ -184,7 +188,6 @@ void Server::commandDiscard(unsigned int clientId) {
     playersCardsCounts[clientId] -= 1;
 
     updateGameDataOnDiscard();
-    checkVictory(clientId);
 }
 
 void Server::sendTurnInformation() {
@@ -204,6 +207,7 @@ void Server::commandFinishTurn(unsigned int clientId) {
     endJackRequest();
     startJackRequest(clientId);
     checkWhoIsNext();
+    checkVictory(clientId);
 }
 
 void Server::sendUpdateToAll() {
@@ -273,6 +277,8 @@ void Server::checkWhoIsNext() {
 void Server::updateGameDataOnDiscard() {
     if (cardOnTable.isBrave())
         bonus += (int) cardOnTable.getPower();
+    else if (bonus > 0)
+        bonus = 0;
     else if (cardOnTable.getFigure() == Card::four)
         turnsToLose++;
     if (request.getColor() != Card::noColor)
@@ -290,5 +296,4 @@ void Server::checkVictory(unsigned int clientId) {
         nextPlayer();
         sendVictoryInformation(actualPlayer);
     }
-
 }

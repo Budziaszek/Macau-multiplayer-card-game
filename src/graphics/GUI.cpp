@@ -107,7 +107,7 @@ bool GUI::welcomeScreen() {
 }
 
 void GUI::playButtonClicked() {
-    FreeConsole();
+    //FreeConsole();
     while (!serverConnection.connect(enterInformation("Enter server ip: "))) {
         if (window->isOpen())
             windowInformation("ERROR", "Could not connect with server! Try again.");
@@ -405,7 +405,7 @@ void GUI::updateAndDisplayInformation() {
                           + (gameState.getBonus() > 0 ? to_string(gameState.getBonus()) : to_string(1)));
 
 
-    if (!gameState.isWaiting())
+    if (!gameState.isWaiting() || gameState.finished())
         turnsToLose.setString("Turns to lose: "
                               + (gameState.isFourRequired() ? to_string(gameState.getTurnsToLose()) : to_string(0)));
     else
