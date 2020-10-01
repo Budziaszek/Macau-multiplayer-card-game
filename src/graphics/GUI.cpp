@@ -80,10 +80,6 @@ bool GUI::welcomeScreen() {
 
     sf::Vector2f mousePosition = sf::Vector2f();
     while (window->isOpen()) {
-        if(gameState.finished()) {
-            windowInformation("INFORMATION", "Game finished on place " + to_string(gameState.getPlace()));
-            gameState.setPlace(-1);
-        }
         window->clear(backgroundColor);
         window->draw(playButton);
         window->draw(serverButton);
@@ -107,7 +103,7 @@ bool GUI::welcomeScreen() {
 }
 
 void GUI::playButtonClicked() {
-    //FreeConsole();
+    FreeConsole();
     while (!serverConnection.connect(enterInformation("Enter server ip: "))) {
         if (window->isOpen())
             windowInformation("ERROR", "Could not connect with server! Try again.");
@@ -189,6 +185,10 @@ void GUI::play() {
     sf::Vector2f mousePosition = sf::Vector2f();
 
     while (window->isOpen()) {
+        if(gameState.finished()) {
+            windowInformation("INFORMATION", "Game finished on place " + to_string(gameState.getPlace()));
+            gameState.setPlace(-1);
+        }
         window->clear(backgroundColor);
         window->draw(author);
         showCardOnTable();
