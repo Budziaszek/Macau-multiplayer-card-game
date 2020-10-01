@@ -183,37 +183,14 @@ void Server::commandDiscard(unsigned int clientId) {
     cardOnTable = Card(color, figure);
     playersCardsCounts[clientId] -= 1;
 
-    if (cardOnTable.isBrave())
-        bonus += (int) cardOnTable.getPower();
-    else if (cardOnTable.getFigure() == Card::four)
-        turnsToLose++;
-    if (request.getColor() != Card::noColor)
-        if (cardOnTable.getColor() == request.getColor())
-            request.setColor(Card::noColor);
-
-    if (playersCardsCounts[clientId] == 0) {
-        playersWhoFinished++;
-        sendVictoryInformation(clientId);
-    }
-    if (playersWhoFinished == numberOfPlayers - 1) {
-        playersWhoFinished++;
-        nextPlayer();
-        sendVictoryInformation(actualPlayer);
-    }
+    updateGameDataOnDiscard();
+    checkVictory(clientId);
 }
 
 void Server::sendTurnInformation() {
     packet.clear();
     packet << ServerConnection::move;
     clients[actualPlayer].send(packet);
-
-    if (request.getFigure() != Card::noFigure) {
-        if (whoRequested == actualPlayer) {
-            whoRequested = -1;
-            request = Card();
-            sendUpdateToAll();
-        }
-    }
 }
 
 void Server::commandFinishTurn(unsigned int clientId) {
@@ -222,18 +199,9 @@ void Server::commandFinishTurn(unsigned int clientId) {
     request = Card(colorRequest, figureRequest);
     turnsToLose = turns;
 
-    if (request.getFigure() != Card::noFigure) {
-        if (whoRequested == -1)
-            whoRequested = (int) clientId;
-    }
-
-    if (cardOnTable.getFigure() == Card::king && cardOnTable.getColor() == Card::spade) {
-        previousPlayer();
-        moveBack = true;
-    } else {
-        nextPlayer();
-        moveBack = false;
-    }
+    endJackRequest();
+    startJackRequest(clientId);
+    checkWhoIsNext();
 }
 
 void Server::sendUpdateToAll() {
@@ -273,4 +241,52 @@ void Server::sendVictoryInformation(unsigned int clientId) {
     packet << win;
     clients[clientId].send(packet);
     win++;
+}
+
+void Server::endJackRequest() {
+    if (request.getFigure() != Card::noFigure)
+        if (whoRequested == actualPlayer) {
+            whoRequested = -1;
+            request = Card();
+            sendUpdateToAll();
+        }
+}
+
+void Server::startJackRequest(unsigned int clientId) {
+    if (request.getFigure() != Card::noFigure)
+        if (whoRequested == -1)
+            whoRequested = (int) clientId;
+}
+
+void Server::checkWhoIsNext() {
+    if (cardOnTable.getFigure() == Card::king && cardOnTable.getColor() == Card::spade) {
+        previousPlayer();
+        moveBack = true;
+    } else {
+        nextPlayer();
+        moveBack = false;
+    }
+}
+
+void Server::updateGameDataOnDiscard() {
+    if (cardOnTable.isBrave())
+        bonus += (int) cardOnTable.getPower();
+    else if (cardOnTable.getFigure() == Card::four)
+        turnsToLose++;
+    if (request.getColor() != Card::noColor)
+        if (cardOnTable.getColor() == request.getColor())
+            request.setColor(Card::noColor);
+}
+
+void Server::checkVictory(unsigned int clientId) {
+    if (playersCardsCounts[clientId] == 0) {
+        playersWhoFinished++;
+        sendVictoryInformation(clientId);
+    }
+    if (playersWhoFinished == numberOfPlayers - 1) {
+        playersWhoFinished++;
+        nextPlayer();
+        sendVictoryInformation(actualPlayer);
+    }
+
 }

@@ -91,6 +91,16 @@ private:
     void commandMissTurn();
 
     void sendVictoryInformation(unsigned int clientId);
+
+    void endJackRequest();
+
+    void startJackRequest(unsigned int clientId);
+
+    void checkWhoIsNext();
+
+    void updateGameDataOnDiscard();
+
+    void checkVictory(unsigned int clientId);
 };
 
 #endif //MACAU_SERVER_H
