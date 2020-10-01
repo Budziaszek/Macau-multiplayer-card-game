@@ -42,6 +42,9 @@ private:
     Button discardButton;
     sf::Text author;
 
+    Button sortByFigure;
+    Button sortByColor;
+
     sf::Text requestInformation;
     sf::Text cardsToDraw;
     sf::Text turnsToLose;

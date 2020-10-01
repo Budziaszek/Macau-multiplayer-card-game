@@ -22,8 +22,7 @@ void PlayerCards::changeCardSelection(unsigned int i) {
     if (cards[i].isSelected()) {
         cards[i].setSelected(false);
         selectedCard = -1;
-    }
-    else {
+    } else {
         resetCardSelection();
         cards[i].setSelected(true);
         selectedCard = (int) i;
@@ -43,7 +42,7 @@ void PlayerCards::show() {
         cout << card.getColor() << " " << card.getFigure() << endl;
 }
 
-void PlayerCards::draw(Deck* deck) {
+void PlayerCards::draw(Deck *deck) {
     cards.push_back(deck->getCard());
 }
 
@@ -63,8 +62,20 @@ Card PlayerCards::discard() {
 }
 
 Card PlayerCards::getSelectedCard() {
-    if(selectedCard == -1)
+    if (selectedCard == -1)
         return Card();
     return cards[selectedCard];
+}
+
+void PlayerCards::sortByColor() {
+    sort(cards.begin(), cards.end(), [](const Card &card1, const Card &card2) {
+        return (card1.getColor() < card2.getColor());
+    });
+}
+
+void PlayerCards::sortByFigure() {
+    sort(cards.begin(), cards.end(), [](const Card &card1, const Card &card2) {
+        return (card1.getFigure() < card2.getFigure());
+    });
 }
 

@@ -42,6 +42,14 @@ GUI::GUI() {
     centerText(finishButton.getText(), (float) width, (float) height);
     finishButton.move(100, 100);
 
+    sortByFigure = Button("Sort by figure", font, 15);
+    centerText(sortByFigure.getText(), (float) width, (float) height);
+    sortByFigure.move(-50, (float) height / 2 - 20);
+
+    sortByColor = Button("Sort by color", font, 15);
+    centerText(sortByColor.getText(), (float) width, (float) height);
+    sortByColor.move(50, (float) height / 2 - 20);
+
     author = sf::Text("Magdalena Budziaszek", font, 15);
     sf::FloatRect textRect = author.getLocalBounds();
     author.setOrigin(textRect.left + textRect.width, textRect.top + textRect.height);
@@ -191,6 +199,8 @@ void GUI::play() {
         }
         window->clear(backgroundColor);
         window->draw(author);
+        window->draw(sortByFigure);
+        window->draw(sortByColor);
         showCardOnTable();
         showCards();
         if (gameState.isTurn())
@@ -202,6 +212,10 @@ void GUI::play() {
             if (event.type == sf::Event::Closed)
                 window->close();
             mousePosition = getMousePosition(window);
+            if(sortByColor.checkMouseEvent(mousePosition, event))
+                gameState.getCards().sortByColor();
+            if(sortByFigure.checkMouseEvent(mousePosition, event))
+                gameState.getCards().sortByFigure();
             if (gameState.isTurn()) {
                 checkGameButtons(mousePosition);
                 if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Button::Left)

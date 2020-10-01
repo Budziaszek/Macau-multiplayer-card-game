@@ -35,6 +35,10 @@ public:
 
     Card discard();
 
+    void sortByColor();
+
+    void sortByFigure();
+
 private:
     vector<Card> cards;
     int selectedCard;
