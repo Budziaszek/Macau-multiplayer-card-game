@@ -1,6 +1,6 @@
 # Macau-multiplayer-card-game
 This is multiplayer card game for 2-4 players. <br>
-Tools and software used: C++, CLion, CMake, TCP/IP, SFML, pygame. <br>
+Tools and software used: C++, CLion, CMake, TCP/IP, SFML <br>
 
 ## Rules and gameplay 
 Rules are similar to rules descriped in <a href="https://en.wikipedia.org/wiki/Macau_(card_game)">Wikipedia</a>, but there are some differences.
